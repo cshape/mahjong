@@ -4,6 +4,10 @@
 
 Mahjong AI voice demo. 4-player Cantonese mahjong with 3 AI voice characters powered by Inworld Realtime API. Monorepo with `client/` (React + Vite) and `server/` (Node + Express + WebSocket).
 
+## Deployment
+
+Deployed on Render. Every feature/fix should be committed and pushed to `main` so it deploys automatically.
+
 ## Commands
 
 ```bash

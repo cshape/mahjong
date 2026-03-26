@@ -228,16 +228,14 @@ export class VoiceManager {
 
     const connectPromises: Promise<void>[] = [];
 
-    // Randomly assign personas to bot seats
-    const shuffled = [...ALL_PERSONAS];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
+    // Build a lookup from persona name to persona config
+    const personaByName = new Map(ALL_PERSONAS.map(p => [p.name, p]));
 
     for (let i = 0; i < botSeats.length; i++) {
       const seatId = botSeats[i];
-      const persona = shuffled[i];
+      // Use the name already assigned by GameRoom (via playerNames)
+      const assignedName = playerNames[seatId];
+      const persona = personaByName.get(assignedName) || ALL_PERSONAS[i];
       this.botPersonas.set(seatId, persona.name);
 
       // Build name lookup (lowercase variants)
@@ -271,6 +269,7 @@ export class VoiceManager {
         this.sendToClient({
           type: 'voice:transcript',
           agentId: seatId,
+          agentName: persona.name,
           text,
           final,
         });

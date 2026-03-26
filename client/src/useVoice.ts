@@ -22,11 +22,8 @@ export interface TranscriptEntry {
   timestamp: number;
 }
 
-const AGENT_NAMES: Record<number, string> = {
-  1: 'Grandpa',
-  2: 'Gladys',
-  3: 'Lucky',
-};
+/** Fallback agent names (overridden by server-provided agentName) */
+const AGENT_NAMES: Record<number, string> = {};
 
 export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
   const [state, setState] = useState<VoiceState>({
@@ -131,8 +128,13 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
         break;
 
       case 'voice:transcript':
+        // Cache agent name from server
+        if (msg.agentName) {
+          AGENT_NAMES[msg.agentId] = msg.agentName;
+        }
         setState(s => {
           const transcripts = [...s.transcripts];
+          const name = AGENT_NAMES[msg.agentId] || 'Agent';
           if (msg.final) {
             // Replace any streaming entry for this agent with the final one
             const idx = transcripts.findIndex(
@@ -141,7 +143,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
             if (idx !== -1) transcripts.splice(idx, 1);
             transcripts.push({
               agentId: msg.agentId,
-              agentName: AGENT_NAMES[msg.agentId] || 'Agent',
+              agentName: name,
               text: msg.text,
               final: true,
               timestamp: Date.now(),
@@ -156,7 +158,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
             } else {
               transcripts.push({
                 agentId: msg.agentId,
-                agentName: AGENT_NAMES[msg.agentId] || 'Agent',
+                agentName: name,
                 text: msg.text,
                 final: false,
                 timestamp: Date.now(),

@@ -46,7 +46,7 @@ export function RulesPanel({ open, onClose }: RulesPanelProps) {
       {/* Slide-out panel */}
       <div style={{
         position: 'fixed',
-        left: 0,
+        right: 0,
         top: 0,
         width: 360,
         height: '100vh',
@@ -55,9 +55,9 @@ export function RulesPanel({ open, onClose }: RulesPanelProps) {
         padding: 24,
         overflowY: 'auto',
         zIndex: 200,
-        transform: open ? 'translateX(0)' : 'translateX(-100%)',
+        transform: open ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 0.3s ease',
-        boxShadow: open ? '4px 0 20px rgba(100,70,50,0.15)' : 'none',
+        boxShadow: open ? '-4px 0 20px rgba(100,70,50,0.15)' : 'none',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: theme.colors.accent }}>How to Play</h2>
