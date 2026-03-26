@@ -259,7 +259,14 @@ export class VoiceManager {
       const session = new RealtimeSession(agentConfig);
 
       session.onAudioChunk = (base64pcm) => {
+        if (this.voicePaused) return;
         if (this.cancelledAgentSeat === seatId) return;
+        if (this.respondingAgentSeat !== seatId) {
+          // Ghost audio — agent is responding without being asked
+          console.warn(`[Voice] Ghost audio from ${persona.name} (seat ${seatId}), expected seat ${this.respondingAgentSeat}. Cancelling.`);
+          session.cancelResponse();
+          return;
+        }
         this.sendToClient({
           type: 'voice:audio',
           agentId: seatId,
@@ -268,7 +275,13 @@ export class VoiceManager {
       };
 
       session.onTranscript = (text, final) => {
+        if (this.voicePaused) return;
         if (this.cancelledAgentSeat === seatId) return;
+        if (this.respondingAgentSeat !== seatId) {
+          // Ghost transcript — cancel it
+          session.cancelResponse();
+          return;
+        }
         this.sendToClient({
           type: 'voice:transcript',
           agentId: seatId,
@@ -278,6 +291,7 @@ export class VoiceManager {
         });
         if (final) {
           this.lastSpeakTime = Date.now();
+          this._touchActivity();
           this.respondingAgentSeat = null;
           this._addContext(`[${persona.name}]: ${text}`);
         }
