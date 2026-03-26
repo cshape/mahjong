@@ -247,6 +247,7 @@ export function GameBoard({
             height: '100%',
             width: '100%',
             maxWidth: 'min(100%, calc((100vh - 100px)))', // keep roughly square but never overflow
+            maxHeight: '100%',
             margin: '0 auto',
             background: `
               repeating-linear-gradient(
@@ -269,7 +270,7 @@ export function GameBoard({
               ".       actions   .      "
             `,
             gridTemplateColumns: 'clamp(60px, 12%, 110px) 1fr clamp(60px, 12%, 110px)',
-            gridTemplateRows: 'auto 1fr auto auto',
+            gridTemplateRows: 'auto minmax(0, 1fr) auto auto',
             gap: 6,
             padding: 10,
             overflow: 'hidden',
@@ -278,7 +279,7 @@ export function GameBoard({
             <div style={{
               gridArea: 'top-hand',
               display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-              minWidth: 0,
+              minWidth: 0, overflow: 'hidden',
             }}>
               <div style={{ width: '100%' }}>
                 <PlayerArea
