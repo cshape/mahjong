@@ -7,7 +7,6 @@ import { VoicePanel } from './VoicePanel';
 import { TranscriptLog } from './TranscriptLog';
 import { RulesPanel } from './RulesPanel';
 import { theme } from '../theme';
-import { useBgm } from '../useBgm';
 import type { ClientGameState, GameEvent, ClaimOption } from '../types';
 import { WIND_NAMES } from '../types';
 
@@ -20,6 +19,13 @@ interface VoiceHook {
   toggleMute: () => void;
 }
 
+interface BgmHook {
+  playing: boolean;
+  volume: number;
+  toggle: () => void;
+  changeVolume: (v: number) => void;
+}
+
 interface GameBoardProps {
   gameState: ClientGameState;
   seatId: number;
@@ -30,17 +36,17 @@ interface GameBoardProps {
   onClaim: (claimtype: number) => void;
   onPass: () => void;
   voice?: VoiceHook;
+  bgm?: BgmHook;
 }
 
 export function GameBoard({
   gameState, seatId, events, pendingAction, claimOptions,
-  onDiscard, onClaim, onPass, voice,
+  onDiscard, onClaim, onPass, voice, bgm,
 }: GameBoardProps) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [showLog, setShowLog] = useState(true);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [winnerId, setWinnerId] = useState<number | null>(null);
-  const bgm = useBgm();
 
   // Detect hand wins from events
   useEffect(() => {
@@ -148,22 +154,38 @@ export function GameBoard({
 
           {/* Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-            <button
-              onClick={bgm.toggle}
-              style={{
-                ...btnStyle,
-                width: 32, height: 32, padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14,
-                borderColor: bgm.playing ? theme.colors.accent : theme.colors.border,
-                color: bgm.playing ? theme.colors.accent : theme.colors.textSecondary,
-                background: bgm.playing ? theme.colors.accentSoft : theme.colors.bgCard,
-                borderRadius: '50%',
-              }}
-              title={bgm.playing ? 'Pause music' : 'Play music'}
-            >
-              {bgm.playing ? '⏸' : '♫'}
-            </button>
+            {bgm && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  onClick={bgm.toggle}
+                  style={{
+                    ...btnStyle,
+                    width: 32, height: 32, padding: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14,
+                    borderColor: bgm.playing ? theme.colors.accent : theme.colors.border,
+                    color: bgm.playing ? theme.colors.accent : theme.colors.textSecondary,
+                    background: bgm.playing ? theme.colors.accentSoft : theme.colors.bgCard,
+                    borderRadius: '50%',
+                  }}
+                  title={bgm.playing ? 'Pause music' : 'Play music'}
+                >
+                  {bgm.playing ? '⏸' : '♫'}
+                </button>
+                {bgm.playing && (
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={bgm.volume}
+                    onChange={e => bgm.changeVolume(parseFloat(e.target.value))}
+                    title={`Volume: ${Math.round(bgm.volume * 100)}%`}
+                    style={{ width: 60, height: 4, cursor: 'pointer', accentColor: theme.colors.accent }}
+                  />
+                )}
+              </div>
+            )}
             {voice && (
               <VoicePanel
                 enabled={voice.enabled}

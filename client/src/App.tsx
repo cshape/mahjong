@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useGameSocket } from './useGameSocket';
 import { useVoice } from './useVoice';
 import { useSoundEffects } from './useSoundEffects';
+import { useBgm } from './useBgm';
 import { GameBoard } from './components/GameBoard';
 import { WaitingRoom } from './components/WaitingRoom';
 import { theme } from './theme';
@@ -16,6 +17,7 @@ function App() {
 
   const voice = useVoice(wsRef);
   const sfx = useSoundEffects();
+  const bgm = useBgm();
 
   const handleGameEvent = useCallback((event: GameEvent) => {
     switch (event.type) {
@@ -43,6 +45,15 @@ function App() {
       voice.startVoice();
     }
   }, [screen, gameState, voice]);
+
+  // Auto-start BGM when entering waiting room or game
+  const bgmStartedRef = useRef(false);
+  useEffect(() => {
+    if ((screen === 'waiting' || screen === 'playing') && !bgmStartedRef.current) {
+      bgmStartedRef.current = true;
+      bgm.start();
+    }
+  }, [screen, bgm]);
 
   // Home screen
   if (screen === 'home') {
@@ -251,6 +262,7 @@ function App() {
       onClaim={claim}
       onPass={pass}
       voice={voice}
+      bgm={bgm}
     />
   );
 }
