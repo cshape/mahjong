@@ -8,21 +8,10 @@ import { theme } from './theme';
 import type { GameEvent } from './types';
 import './App.css';
 
-/** Background images for the landing page — place files in public/bg/ */
-const BG_IMAGES = [
-  '/bg/1.jpg',
-  '/bg/2.jpg',
-  '/bg/3.jpg',
-  '/bg/4.jpg',
-  '/bg/5.jpg',
-];
-const BG_INTERVAL = 6000; // ms between transitions
-
 function App() {
   const [playerName, setPlayerName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
-  const [bgIndex, setBgIndex] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
 
   const voice = useVoice(wsRef);
@@ -55,15 +44,6 @@ function App() {
     }
   }, [screen, gameState, voice]);
 
-  // Cycle background images on landing page
-  useEffect(() => {
-    if (screen !== 'home') return;
-    const timer = setInterval(() => {
-      setBgIndex(i => (i + 1) % BG_IMAGES.length);
-    }, BG_INTERVAL);
-    return () => clearInterval(timer);
-  }, [screen]);
-
   // Home screen
   if (screen === 'home') {
     return (
@@ -73,42 +53,31 @@ function App() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#1a1a1a',
         fontFamily: theme.font,
-        position: 'relative',
-        overflow: 'hidden',
+        background: `
+          repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 1.5rem,
+            rgba(160,120,60,0.08) 1.5rem,
+            rgba(160,120,60,0.08) 1.55rem
+          ),
+          repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 6rem,
+            rgba(120,80,30,0.06) 6rem,
+            rgba(120,80,30,0.06) 6.1rem
+          ),
+          linear-gradient(
+            170deg,
+            #D4C4A0 0%, #C8B68C 30%, #DACCB0 50%, #C4B288 80%, #D0C098 100%
+          )
+        `,
       }}>
-        {/* Crossfading background images */}
-        {BG_IMAGES.map((src, i) => (
-          <div
-            key={src}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage: `url(${src})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              opacity: i === bgIndex ? 1 : 0,
-              transition: 'opacity 2s ease-in-out',
-              zIndex: 0,
-            }}
-          />
-        ))}
-        {/* Dark overlay for readability */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1,
-        }} />
-        {/* Content (above background) */}
-        <div style={{
-          position: 'relative', zIndex: 2,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-        }}>
-        <div style={{ textAlign: 'center', marginBottom: 48 }}>
+        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
           <h1 style={{
-            fontSize: 48, fontWeight: 800, marginBottom: 0,
+            fontSize: '3rem', fontWeight: 800, marginBottom: 0,
             background: 'linear-gradient(135deg, #F2836B, #E06B55)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
@@ -116,7 +85,7 @@ function App() {
         </div>
 
         {/* Name + Buttons container */}
-        <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ width: '20rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <input
             type="text"
             placeholder="Enter your name"
@@ -124,8 +93,8 @@ function App() {
             onChange={e => setPlayerName(e.target.value)}
             autoFocus
             style={{
-              padding: '12px 20px',
-              fontSize: 16,
+              padding: '0.75rem 1.25rem',
+              fontSize: '1rem',
               border: `2px solid ${theme.colors.border}`,
               borderRadius: theme.radius.md,
               outline: 'none',
@@ -137,14 +106,14 @@ function App() {
             }}
           />
 
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               onClick={() => playerName.trim() && createGame(playerName.trim())}
               disabled={!playerName.trim()}
               style={{
                 flex: 1,
-                padding: '14px 0',
-                fontSize: 16,
+                padding: '0.875rem 0',
+                fontSize: '1rem',
                 fontWeight: 700,
                 backgroundColor: playerName.trim() ? theme.colors.accent : theme.colors.textMuted,
                 color: '#fff',
@@ -162,8 +131,8 @@ function App() {
               onClick={() => setShowJoinInput(!showJoinInput)}
               style={{
                 flex: 1,
-                padding: '14px 0',
-                fontSize: 16,
+                padding: '0.875rem 0',
+                fontSize: '1rem',
                 fontWeight: 700,
                 backgroundColor: 'transparent',
                 color: theme.colors.accent,
@@ -181,7 +150,7 @@ function App() {
 
         {/* Join Code Input */}
         {showJoinInput && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
             <input
               type="text"
               placeholder="Enter code"
@@ -195,14 +164,14 @@ function App() {
               autoFocus
               maxLength={4}
               style={{
-                padding: '10px 16px',
-                fontSize: 20,
+                padding: '0.625rem 1rem',
+                fontSize: '1.25rem',
                 fontWeight: 700,
-                letterSpacing: 6,
+                letterSpacing: '0.375rem',
                 border: `2px solid ${theme.colors.border}`,
                 borderRadius: theme.radius.md,
                 outline: 'none',
-                width: 140,
+                width: '8.75rem',
                 backgroundColor: theme.colors.bgCard,
                 color: theme.colors.textPrimary,
                 textAlign: 'center',
@@ -212,8 +181,8 @@ function App() {
               onClick={() => playerName.trim() && joinCode.length === 4 && joinGame(playerName.trim(), joinCode)}
               disabled={!playerName.trim() || joinCode.length !== 4}
               style={{
-                padding: '10px 24px',
-                fontSize: 14,
+                padding: '0.625rem 1.5rem',
+                fontSize: '0.875rem',
                 fontWeight: 700,
                 backgroundColor: (playerName.trim() && joinCode.length === 4) ? theme.colors.accent : theme.colors.textMuted,
                 color: '#fff',
@@ -229,16 +198,14 @@ function App() {
         )}
 
         {error && (
-          <p style={{ color: '#d44', fontSize: 14, marginTop: 8 }}>{error}</p>
+          <p style={{ color: '#d44', fontSize: '0.875rem', marginTop: '0.5rem' }}>{error}</p>
         )}
 
         {connected && screen === 'home' && (
-          <p style={{ marginTop: 16, color: theme.colors.textSecondary, fontSize: 14 }}>
+          <p style={{ marginTop: '1rem', color: theme.colors.textSecondary, fontSize: '0.875rem' }}>
             Connecting...
           </p>
         )}
-
-        </div>{/* end content wrapper */}
       </div>
     );
   }
