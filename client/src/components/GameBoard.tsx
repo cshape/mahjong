@@ -115,8 +115,8 @@ export function GameBoard({
           ? 'clamp(160px, 16vw, 240px) 1fr clamp(160px, 16vw, 240px)'
           : '1fr',
         gridTemplateRows: 'auto 1fr',
-        gap: 12,
-        padding: 12,
+        gap: 8,
+        padding: 8,
         background: theme.colors.bgPage,
       }}>
         {/* Top bar */}
@@ -239,16 +239,13 @@ export function GameBoard({
         <div style={{
           gridArea: 'board',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          alignItems: 'stretch',
+          justifyContent: 'stretch',
           overflow: 'hidden',
         }}>
           <div style={{
             height: '100%',
             width: '100%',
-            maxWidth: 'min(100%, calc((100vh - 100px)))', // keep roughly square but never overflow
-            maxHeight: '100%',
-            margin: '0 auto',
             background: `
               repeating-linear-gradient(
                 87deg,
@@ -397,13 +394,12 @@ export function GameBoard({
       </div>
 
       {/* Win celebration overlay */}
-      {winnerId != null && (
+      {winnerId != null && gameState.phase !== 'finished' && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 50,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(0,0,0,0.4)',
           animation: 'fadeIn 0.3s ease-out',
-          pointerEvents: 'none',
         }}>
           <div style={{
             textAlign: 'center',
@@ -420,9 +416,27 @@ export function GameBoard({
             <div style={{
               fontSize: 16, color: '#fff', marginTop: 8,
               textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+              marginBottom: 24,
             }}>
               Mah Jong!
             </div>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '0.75rem 2rem',
+                fontSize: 16,
+                fontWeight: 700,
+                backgroundColor: theme.colors.accent,
+                color: '#fff',
+                border: 'none',
+                borderRadius: theme.radius.md,
+                cursor: 'pointer',
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+              }}
+            >
+              New Game
+            </button>
           </div>
         </div>
       )}
