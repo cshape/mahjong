@@ -52,7 +52,7 @@ app.get('/api/rooms/:code', (req, res) => {
 
 // Serve client static files in production
 if (process.env.NODE_ENV === 'production') {
-  const clientDist = path.join(__dirname, '../client/dist');
+  const clientDist = path.join(__dirname, '../../client/dist');
   app.use(express.static(clientDist));
   // SPA fallback — but not for /api or /game routes
   app.get('/{*splat}', (req, res) => {
