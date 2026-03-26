@@ -1,0 +1,22 @@
+export const theme = {
+  colors: {
+    bgPage: '#E8F0E4',
+    bgBoard: '#B8CFA8',
+    bgCard: '#FFF5ED',
+    bgFrost: 'rgba(255,255,255,0.7)',
+    accent: '#F2836B',
+    accentHover: '#E06B55',
+    accentSoft: 'rgba(242,131,107,0.15)',
+    lavender: '#C5B3D9',
+    textPrimary: '#3D3533',
+    textSecondary: '#8B7B72',
+    textMuted: '#B5A89F',
+    tileFace: '#FFF8F0',
+    tileBack: '#D4A088',
+    border: 'rgba(210,160,130,0.3)',
+    shadow: '0 2px 12px rgba(100,70,50,0.1)',
+    shadowLg: '0 4px 24px rgba(100,70,50,0.15)',
+  },
+  radius: { sm: 8, md: 12, lg: 16, xl: 20 },
+  font: "'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif",
+};

@@ -1,0 +1,27 @@
+{
+  "name": "mahjong-server",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "node --loader ts-node/esm index.ts",
+    "dev": "nodemon --exec \"node --loader ts-node/esm\" index.ts",
+    "build": "tsc",
+    "game:test": "node --loader ts-node/esm game/test-game.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/ws": "^8.18.1",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@types/cors": "^2.8.19",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.1"
+  }
+}

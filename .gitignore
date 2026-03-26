@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+.envrc
+.DS_Store
+.vscode/
+.cursor/
+.claude/
+*.log
