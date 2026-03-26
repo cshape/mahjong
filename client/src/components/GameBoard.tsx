@@ -176,14 +176,13 @@ export function GameBoard({
   const overlays = (
     <>
       {winnerId != null && gameState.phase !== 'finished' && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', animation: 'fadeIn 0.3s ease-out', pointerEvents: 'none' }}>
           <div style={{ textAlign: 'center', animation: 'winBounce 0.5s ease-out' }}>
             <div style={{ fontSize: 64, marginBottom: 8 }}>🏆</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#FFD700', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
-              {gameState.players[winnerId]?.name || 'Player'} wins!
+              {gameState.players[winnerId]?.name || 'Player'} wins the hand!
             </div>
-            <div style={{ fontSize: 16, color: '#fff', marginTop: 8, textShadow: '0 1px 4px rgba(0,0,0,0.5)', marginBottom: 24 }}>Mah Jong!</div>
-            <button onClick={onRestart} style={{ padding: '0.75rem 2rem', fontSize: 16, fontWeight: 700, backgroundColor: theme.colors.accent, color: '#fff', border: 'none', borderRadius: theme.radius.md, cursor: 'pointer', letterSpacing: 0.5, textTransform: 'uppercase' }}>New Game</button>
+            <div style={{ fontSize: 16, color: '#fff', marginTop: 8, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>Mah Jong!</div>
           </div>
         </div>
       )}
