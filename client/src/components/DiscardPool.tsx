@@ -134,19 +134,19 @@ export function DiscardPool({ players, lastDiscard, seatId = 0 }: DiscardPoolPro
         </div>
       )}
 
-      <div style={{ gridArea: 'dtop', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+      <div style={{ gridArea: 'dtop', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'hidden' }}>
         {renderDiscards(seatOrder[2])}
       </div>
 
-      <div style={{ gridArea: 'dleft', display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+      <div style={{ gridArea: 'dleft', display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-start', overflow: 'hidden' }}>
         {renderDiscards(seatOrder[3])}
       </div>
 
-      <div style={{ gridArea: 'dright', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ gridArea: 'dright', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', overflow: 'hidden' }}>
         {renderDiscards(seatOrder[1])}
       </div>
 
-      <div style={{ gridArea: 'dbot', display: 'flex', justifyContent: 'center', alignItems: 'flex-end' }}>
+      <div style={{ gridArea: 'dbot', display: 'flex', justifyContent: 'center', alignItems: 'flex-end', overflow: 'hidden' }}>
         {renderDiscards(seatOrder[0])}
       </div>
     </div>

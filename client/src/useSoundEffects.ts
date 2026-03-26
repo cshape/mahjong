@@ -61,24 +61,41 @@ function playClaimChime() {
   });
 }
 
-/** Rising three-tone fanfare for Mah Jong win */
+/** Celebration fanfare for Mah Jong win — ascending arpeggio + shimmer */
 function playWinFanfare() {
   const ctx = getCtx();
   const t = ctx.currentTime;
 
-  [523, 659, 784].forEach((freq, i) => {
+  // Ascending arpeggio
+  [523, 659, 784, 1047].forEach((freq, i) => {
     const osc = ctx.createOscillator();
     osc.type = 'triangle';
     osc.frequency.value = freq;
 
     const gain = ctx.createGain();
-    const start = t + i * 0.15;
+    const start = t + i * 0.12;
     gain.gain.setValueAtTime(0.3, start);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.6);
 
     osc.connect(gain).connect(ctx.destination);
     osc.start(start);
-    osc.stop(start + 0.55);
+    osc.stop(start + 0.65);
+  });
+
+  // Shimmer chord at the end
+  [1047, 1319, 1568].forEach((freq) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    const gain = ctx.createGain();
+    const start = t + 0.5;
+    gain.gain.setValueAtTime(0.15, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 1.2);
+
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + 1.3);
   });
 }
 

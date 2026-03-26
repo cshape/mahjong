@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { PlayerArea } from './PlayerArea';
 import { DiscardPool } from './DiscardPool';
 import { ActionBar } from './ActionBar';
@@ -39,7 +39,18 @@ export function GameBoard({
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [showLog, setShowLog] = useState(true);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [winnerId, setWinnerId] = useState<number | null>(null);
   const bgm = useBgm();
+
+  // Detect hand wins from events
+  useEffect(() => {
+    const last = events[events.length - 1];
+    if (last?.type === 'hand:win' && last.winner != null) {
+      setWinnerId(last.winner);
+      const timer = setTimeout(() => setWinnerId(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [events]);
 
   const seatOrder = useMemo(() => [
     seatId,
@@ -252,6 +263,7 @@ export function GameBoard({
                   player={gameState.players[seatOrder[2]]}
                   isMe={false}
                   position="top"
+                  isWinner={winnerId === seatOrder[2]}
                 />
               </div>
             </div>
@@ -266,6 +278,7 @@ export function GameBoard({
                 player={gameState.players[seatOrder[3]]}
                 isMe={false}
                 position="left"
+                isWinner={winnerId === seatOrder[3]}
               />
             </div>
 
@@ -293,6 +306,7 @@ export function GameBoard({
                 player={gameState.players[seatOrder[1]]}
                 isMe={false}
                 position="right"
+                isWinner={winnerId === seatOrder[1]}
               />
             </div>
 
@@ -313,6 +327,7 @@ export function GameBoard({
                   lastDrawnIndex={gameState.lastDrawnIndex}
                   selectedTile={selectedTile}
                   onTileClick={handleTileClick}
+                  isWinner={winnerId === seatId}
                 />
               </div>
             </div>
@@ -357,6 +372,93 @@ export function GameBoard({
           </div>
         )}
       </div>
+
+      {/* Win celebration overlay */}
+      {winnerId != null && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.4)',
+          animation: 'fadeIn 0.3s ease-out',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            textAlign: 'center',
+            animation: 'winBounce 0.5s ease-out',
+          }}>
+            <div style={{ fontSize: 64, marginBottom: 8 }}>🏆</div>
+            <div style={{
+              fontSize: 28, fontWeight: 800,
+              color: '#FFD700',
+              textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            }}>
+              {gameState.players[winnerId]?.name || 'Player'} wins!
+            </div>
+            <div style={{
+              fontSize: 16, color: '#fff', marginTop: 8,
+              textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+            }}>
+              Mah Jong!
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game over overlay */}
+      {gameState.phase === 'finished' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 60,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.6)',
+        }}>
+          <div style={{
+            background: theme.colors.bgCard,
+            borderRadius: theme.radius.lg,
+            padding: '2rem 2.5rem',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            minWidth: 280,
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: theme.colors.accent, marginBottom: 16 }}>
+              Game Over
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              {[...gameState.players]
+                .sort((a, b) => b.score - a.score)
+                .map((p, i) => (
+                  <div key={p.id} style={{
+                    display: 'flex', justifyContent: 'space-between', gap: 24,
+                    padding: '6px 0',
+                    fontSize: 14,
+                    fontWeight: i === 0 ? 800 : 400,
+                    color: i === 0 ? '#FFD700' : theme.colors.textPrimary,
+                    borderBottom: i < 3 ? `1px solid ${theme.colors.border}` : 'none',
+                  }}>
+                    <span>{i === 0 ? '🏆 ' : ''}{p.name}</span>
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{p.score}</span>
+                  </div>
+                ))}
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '0.75rem 2rem',
+                fontSize: 16,
+                fontWeight: 700,
+                backgroundColor: theme.colors.accent,
+                color: '#fff',
+                border: 'none',
+                borderRadius: theme.radius.md,
+                cursor: 'pointer',
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+              }}
+            >
+              Start New Game
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

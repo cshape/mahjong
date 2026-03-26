@@ -13,6 +13,7 @@ interface PlayerAreaProps {
   lastDrawnIndex?: number | null;
   selectedTile?: number | null;
   onTileClick?: (index: number) => void;
+  isWinner?: boolean;
 }
 
 const WIND_SYMBOLS: Record<string, string> = {
@@ -103,7 +104,7 @@ function PlayerInfo({ player, isMe, isActive, compact }: {
 
 export function PlayerArea({
   player, isMe, position, myHand, myLocked, myBonus,
-  lastDrawnIndex, selectedTile, onTileClick,
+  lastDrawnIndex, selectedTile, onTileClick, isWinner,
 }: PlayerAreaProps) {
   const isActive = player.isCurrentTurn;
   const locked = isMe ? myLocked : player.locked;
@@ -112,9 +113,9 @@ export function PlayerArea({
 
   const cardStyle: React.CSSProperties = {
     borderRadius: theme.radius.md,
-    backgroundColor: isActive ? theme.colors.accentSoft : theme.colors.bgCard,
-    border: isActive ? `2px solid ${theme.colors.accent}` : `1px solid ${theme.colors.border}`,
-    boxShadow: theme.colors.shadow,
+    backgroundColor: isWinner ? 'rgba(255,215,0,0.15)' : isActive ? theme.colors.accentSoft : theme.colors.bgCard,
+    border: isWinner ? '2px solid #FFD700' : isActive ? `2px solid ${theme.colors.accent}` : `1px solid ${theme.colors.border}`,
+    boxShadow: isWinner ? '0 0 16px rgba(255,215,0,0.4)' : theme.colors.shadow,
     transition: 'all 0.3s ease',
   };
 
