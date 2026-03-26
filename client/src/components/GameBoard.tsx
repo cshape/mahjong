@@ -7,6 +7,7 @@ import { VoicePanel } from './VoicePanel';
 import { TranscriptLog } from './TranscriptLog';
 import { RulesPanel } from './RulesPanel';
 import { theme } from '../theme';
+import { useBgm } from '../useBgm';
 import type { ClientGameState, GameEvent, ClaimOption } from '../types';
 import { WIND_NAMES } from '../types';
 
@@ -39,6 +40,7 @@ export function GameBoard({
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [showLog, setShowLog] = useState(true);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const bgm = useBgm();
 
   const seatOrder = useMemo(() => [
     seatId,
@@ -136,6 +138,22 @@ export function GameBoard({
 
           {/* Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+            <button
+              onClick={bgm.toggle}
+              style={{
+                ...btnStyle,
+                width: 32, height: 32, padding: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14,
+                borderColor: bgm.playing ? theme.colors.accent : theme.colors.border,
+                color: bgm.playing ? theme.colors.accent : theme.colors.textSecondary,
+                background: bgm.playing ? theme.colors.accentSoft : theme.colors.bgCard,
+                borderRadius: '50%',
+              }}
+              title={bgm.playing ? 'Pause music' : 'Play music'}
+            >
+              {bgm.playing ? '⏸' : '♫'}
+            </button>
             {voice && (
               <VoicePanel
                 enabled={voice.enabled}
