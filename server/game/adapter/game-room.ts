@@ -446,6 +446,51 @@ export class GameRoom extends EventEmitter {
   }
 
   /**
+   * Restart the game with the same players and seats.
+   */
+  async restart(): Promise<void> {
+    if (this.phase !== 'finished') return;
+    console.log(`[Room ${this.id}] Restarting game`);
+
+    // Re-create engine players with same seats
+    this.players = this.seats.map((seat, idx) => {
+      const p = new BotPlayer(idx);
+      (p as any).playerName = seat!.name;
+      (p as any).isBot = seat!.isBot;
+      return p;
+    });
+
+    // Re-patch human players
+    for (const seat of this.seats) {
+      if (seat && !seat.isBot) {
+        this._patchHumanPlayer(seat.id);
+      }
+    }
+
+    // New game engine
+    this.phase = 'playing';
+    config.SEED = Date.now() % 2147483647;
+    config.PRNG.seed(config.SEED);
+
+    this.gm = new GameManager(this.players);
+    this.game = this.gm.newGame();
+    this._hookGameEvents();
+
+    this.game.startGame((secondsTaken: number) => {
+      this.phase = 'finished';
+      const scores = this.players.map((p: any) => (p as any)._score);
+      this._emitGameEvent({
+        type: 'game:end',
+        scores,
+        data: { secondsTaken, hands: this.game.scoreHistory.length },
+      });
+    });
+
+    // Broadcast fresh state to all humans
+    this._broadcastState();
+  }
+
+  /**
    * Start the game.
    */
   async start() {

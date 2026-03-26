@@ -35,13 +35,14 @@ interface GameBoardProps {
   onDiscard: (tileIndex: number) => void;
   onClaim: (claimtype: number) => void;
   onPass: () => void;
+  onRestart: () => void;
   voice?: VoiceHook;
   bgm?: BgmHook;
 }
 
 export function GameBoard({
   gameState, seatId, events, pendingAction, claimOptions,
-  onDiscard, onClaim, onPass, voice, bgm,
+  onDiscard, onClaim, onPass, onRestart, voice, bgm,
 }: GameBoardProps) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [showLog, setShowLog] = useState(true);
@@ -421,7 +422,7 @@ export function GameBoard({
               Mah Jong!
             </div>
             <button
-              onClick={() => window.location.reload()}
+              onClick={onRestart}
               style={{
                 padding: '0.75rem 2rem',
                 fontSize: 16,
@@ -477,7 +478,7 @@ export function GameBoard({
                 ))}
             </div>
             <button
-              onClick={() => window.location.reload()}
+              onClick={onRestart}
               style={{
                 padding: '0.75rem 2rem',
                 fontSize: 16,

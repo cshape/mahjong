@@ -175,6 +175,11 @@ export function useGameSocket(
     setState(s => ({ ...s, pendingAction: null, claimOptions: null, claimTile: null }));
   }, [send]);
 
+  const restart = useCallback(() => {
+    send({ type: 'restart' });
+    setState(s => ({ ...s, events: [], pendingAction: null, claimOptions: null, claimTile: null }));
+  }, [send]);
+
   useEffect(() => {
     return () => {
       wsRef.current?.close();
@@ -190,5 +195,6 @@ export function useGameSocket(
     discard,
     claim,
     pass,
+    restart,
   };
 }

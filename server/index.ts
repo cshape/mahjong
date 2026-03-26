@@ -189,6 +189,16 @@ wss.on('connection', (ws, request) => {
         break;
       }
 
+      case 'restart': {
+        if (!room) return send({ type: 'error', message: 'Not in a room' });
+        if (room.phase !== 'finished') return send({ type: 'error', message: 'Game not finished' });
+        room.restart().catch(err => {
+          console.error('Game restart error:', err);
+          send({ type: 'error', message: 'Failed to restart game' });
+        });
+        break;
+      }
+
       case 'mic:audio': {
         if (room?.voiceManager && msg.audio) {
           room.voiceManager.onMicAudio(seatId, msg.audio);
