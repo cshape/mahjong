@@ -196,6 +196,16 @@ wss.on('connection', (ws, request) => {
         break;
       }
 
+      case 'voice:on': {
+        room?.voiceManager?.setVoicePaused(false);
+        break;
+      }
+
+      case 'voice:off': {
+        room?.voiceManager?.setVoicePaused(true);
+        break;
+      }
+
       default:
         send({ type: 'error', message: `Unknown message type: ${msg.type}` });
     }

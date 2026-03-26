@@ -1,11 +1,5 @@
 import { theme } from '../theme';
 
-const AGENT_COLORS: Record<number, string> = {
-  1: '#C07840', // Grandpa
-  2: '#4A8C5A', // Gladys
-  3: '#4A6EBF', // Lucky
-};
-
 const btnStyle: React.CSSProperties = {
   padding: '6px 14px',
   fontSize: 12,
@@ -23,14 +17,13 @@ const btnStyle: React.CSSProperties = {
 interface VoicePanelProps {
   enabled: boolean;
   muted: boolean;
-  speakingAgentId: number | null;
   onStartVoice: () => void;
   onStopVoice: () => void;
   onToggleMute: () => void;
 }
 
 export function VoicePanel({
-  enabled, muted, speakingAgentId,
+  enabled, muted,
   onStartVoice, onStopVoice, onToggleMute,
 }: VoicePanelProps) {
   return (
@@ -65,25 +58,6 @@ export function VoicePanel({
           >
             Voice Off
           </button>
-          {speakingAgentId != null && (
-            <span style={{
-              fontSize: 10,
-              color: AGENT_COLORS[speakingAgentId] || theme.colors.textSecondary,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 3,
-            }}>
-              <span style={{
-                display: 'inline-block',
-                width: 5,
-                height: 5,
-                borderRadius: '50%',
-                backgroundColor: AGENT_COLORS[speakingAgentId] || theme.colors.textSecondary,
-                animation: 'pulse 0.8s ease-in-out infinite',
-              }} />
-              Speaking
-            </span>
-          )}
         </>
       )}
     </div>

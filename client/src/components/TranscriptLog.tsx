@@ -8,6 +8,11 @@ const AGENT_COLORS: Record<number, string> = {
   3: '#4A6EBF', // Lucky - deep blue
 };
 
+/** Strip audio markup tags like [laugh], [sigh], etc. from display text */
+function stripMarkup(text: string): string {
+  return text.replace(/\[[\w_]+\]\s*/g, '').trim();
+}
+
 interface TranscriptLogProps {
   transcripts: TranscriptEntry[];
 }
@@ -49,7 +54,7 @@ export function TranscriptLog({ transcripts }: TranscriptLogProps) {
             {t.agentName}:
           </span>{' '}
           <span style={{ color: theme.colors.textSecondary }}>
-            {t.text}
+            {stripMarkup(t.text)}
           </span>
         </div>
       ))}

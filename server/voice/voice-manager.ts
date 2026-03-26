@@ -194,6 +194,9 @@ export class VoiceManager {
   private cancelledAgentSeat: number | null = null;
   private dispatcherInFlight = false;
 
+  /** When true, AI characters don't vocalize (client toggled voice off) */
+  private voicePaused = false;
+
   /** Silence detection */
   private lastActivityTime = Date.now();
   private silenceTimer: ReturnType<typeof setInterval> | null = null;
@@ -361,6 +364,7 @@ export class VoiceManager {
    */
   private _onHumanSpeech(humanName: string, text: string) {
     this._touchActivity();
+    if (this.voicePaused) return;
     if (this.respondingAgentSeat !== null) {
       // Interrupt: an agent is mid-response
       const seat = this.respondingAgentSeat;
@@ -399,6 +403,25 @@ export class VoiceManager {
         this.dispatcher.sendContext(context);
       }
     }
+  }
+
+  /** Pause all AI vocalization (client turned voice off) */
+  setVoicePaused(paused: boolean) {
+    this.voicePaused = paused;
+    if (paused) {
+      // Cancel any in-progress response
+      if (this.respondingAgentSeat !== null) {
+        const session = this.agentSessions.get(this.respondingAgentSeat);
+        session?.cancelResponse();
+        this.cancelledAgentSeat = this.respondingAgentSeat;
+        this.respondingAgentSeat = null;
+      }
+      if (this.dispatcherInFlight && this.dispatcher) {
+        this.dispatcher.cancelResponse();
+        this.dispatcherInFlight = false;
+      }
+    }
+    console.log(`[Voice] Voice ${paused ? 'paused' : 'resumed'}`);
   }
 
   /**
@@ -459,6 +482,8 @@ export class VoiceManager {
 
   private _askDispatcher(context: string) {
     this.dispatchQueue = this.dispatchQueue.then(async () => {
+      if (this.voicePaused) return;
+
       const now = Date.now();
       const sinceLastSpeak = now - this.lastSpeakTime;
       if (sinceLastSpeak < SPEECH_COOLDOWN) {

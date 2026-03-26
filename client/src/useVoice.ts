@@ -257,6 +257,12 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
       source.connect(workletNode);
       workletNode.connect(captureCtx.destination);
 
+      // Tell server to enable voice
+      const ws = wsRef.current;
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'voice:on' }));
+      }
+
       setState(s => ({ ...s, enabled: true }));
     } catch (err) {
       console.error('[Voice] Failed to start:', err);
@@ -267,6 +273,12 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
    * Stop voice: clean up audio contexts and mic.
    */
   const stopVoice = useCallback(() => {
+    // Tell server to disable voice
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'voice:off' }));
+    }
+
     if (workletNodeRef.current) {
       workletNodeRef.current.disconnect();
       workletNodeRef.current = null;
@@ -288,7 +300,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
       playbackCtxRef.current = null;
     }
     setState(s => ({ ...s, enabled: false, speakingAgentId: null }));
-  }, []);
+  }, [wsRef]);
 
   const toggleMute = useCallback(() => {
     const stream = streamRef.current;

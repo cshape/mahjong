@@ -14,7 +14,6 @@ import { WIND_NAMES } from '../types';
 interface VoiceHook {
   enabled: boolean;
   muted: boolean;
-  speakingAgentId: number | null;
   transcripts: { agentId: number | null; agentName: string; text: string; final: boolean; timestamp: number }[];
   startVoice: () => void;
   stopVoice: () => void;
@@ -158,7 +157,6 @@ export function GameBoard({
               <VoicePanel
                 enabled={voice.enabled}
                 muted={voice.muted}
-                speakingAgentId={voice.speakingAgentId}
                 onStartVoice={voice.startVoice}
                 onStopVoice={voice.stopVoice}
                 onToggleMute={voice.toggleMute}
