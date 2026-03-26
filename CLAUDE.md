@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-Mahjong AI voice demo. 4-player Cantonese mahjong with 3 AI voice characters powered by Inworld Realtime API. Monorepo with `client/` (React + Vite) and `server/` (Node + Express + WebSocket).
+Mahjong AI voice demo. 4-player Cantonese mahjong with 3 AI voice characters powered by Inworld Realtime API. Monorepo with `client/` (React + Vite) and `server/` (Node + Express + WebSocket). Responsive — works on desktop and mobile.
 
 ## Deployment
 
-Deployed on Render. Every feature/fix should be committed and pushed to `main` so it deploys automatically.
+Deployed on Render via `render.yaml`. Every feature/fix should be committed and pushed to `main` so it deploys automatically. Always build the client (`cd client && npx vite build`) and type-check the server before pushing.
 
 ## Commands
 
@@ -23,12 +23,7 @@ Server TypeScript check:
 cd server && npx tsc --noEmit
 ```
 
-Client TypeScript check (use --noEmit, `tsc -b` has pre-existing unrelated errors):
-```bash
-cd client && npx tsc --noEmit
-```
-
-Client build (vite):
+Client build (vite — this is the canonical build, not `tsc -b`):
 ```bash
 cd client && npx vite build
 ```
@@ -36,30 +31,44 @@ cd client && npx vite build
 ## Architecture
 
 ### Client (`client/src/`)
-- `App.tsx` — main game UI, lobby/game state machine
-- `useGameSocket.ts` — WebSocket connection, sends/receives game messages
-- `useVoice.ts` — mic capture (24kHz PCM16), audio playback queues per agent
-- `components/` — GameBoard, Tile, ActionBar, VoicePanel, TranscriptLog, etc.
+- `App.tsx` — main game UI, lobby/game state machine, owns BGM and voice hooks
+- `useGameSocket.ts` — WebSocket connection, sends/receives game messages, exposes `restart()`
+- `useVoice.ts` — mic capture (24kHz PCM16), audio playback queues per agent, sends `voice:on`/`voice:off` to server
+- `useBgm.ts` — background music (HTML audio element, loop, volume control, auto-starts on game begin)
+- `useIsMobile.ts` — media query hook, breakpoint at 768px
+- `useSoundEffects.ts` — synthesized game sounds via Web Audio API (discard, claim, win fanfare, draw)
+- `components/GameBoard.tsx` — main game layout with separate desktop and mobile render paths
+- `components/TranscriptLog.tsx` — strips `[audio_markup]` tags before display
 - Vite dev server on :5173 proxies `/api` and `/game` (ws) to :3001
 
 ### Server (`server/`)
-- `index.ts` — Express HTTP + WebSocket server, room routing
+- `index.ts` — Express HTTP + WebSocket server, room routing. Handles message types: `join`, `start`, `restart`, `discard`, `claim`, `pass`, `mic:audio`, `voice:on`, `voice:off`
 - `room-manager.ts` — multi-room lobby, short game codes
 - `voice/voice-manager.ts` — voice orchestration (the most important file for AI behavior)
   - `ALL_PERSONAS` array (line ~22): character names, voices, and system prompts
   - `buildDispatcherInstructions()`: controls when/who speaks
   - Silence detection (15s) and slow discard detection (10s) timers
-- `voice/realtime-session.ts` — Inworld Realtime API WebSocket client, handles connect/reconnect/auth
+  - `voicePaused` flag: when true, suppresses all dispatching and cancels in-flight responses
+  - `setVoicePaused()`: called by server on `voice:on`/`voice:off` messages
+- `voice/realtime-session.ts` — Inworld Realtime API WebSocket client
+  - Gates audio/transcript callbacks on `this.responding` to prevent ghost output
+  - Cancels unsolicited auto-responses on `response.created`
 - `game/adapter/game-room.ts` — bridges Pomax game engine to WebSocket clients
   - `ALL_BOT_PERSONAS` array: bot name/voice mapping (keep in sync with voice-manager)
+  - `restart()`: re-creates engine players with same seats, starts fresh game without reconnecting voice
   - Emits game events: `turn:discard`, `turn:draw`, `turn:claim`, `hand:win`, `hand:draw`, `game:end`
-- `game/adapter/state-filter.ts` — filters game state per player (hides opponents' tiles)
 - `game/engine/` — Pomax mahjong engine (forked JS, not TypeScript). Don't modify unless fixing game logic bugs.
 
 ### Key Data Flow
-1. Client connects via WebSocket to `/game?room=CODE&seat=N`
+1. Client connects via WebSocket to `/game`
 2. Game events flow: engine → game-room.ts → voice-manager.ts → dispatcher session → agent session → audio back to client
 3. Human speech: mic → client WS → server → STT session → transcript → dispatcher → agent response
+4. Voice on/off: client sends `voice:on`/`voice:off` → server sets `voicePaused` flag on voice-manager
+
+### Mobile Layout
+- Breakpoint: 768px (`useIsMobile.ts`)
+- Mobile: single column, compact top bar with hamburger menu, slide-out panels for game log (left) and voice chat (right)
+- Desktop: three-column grid (event log | board | transcript log), full top bar with inline controls
 
 ## Environment
 - `INWORLD_API_KEY` — required for voice (base64-encoded). Without it, game runs but AI characters are silent.
@@ -68,8 +77,10 @@ cd client && npx vite build
 ## Code Conventions
 - Server is TypeScript (ESM, `"type": "module"`). Game engine files are plain JS with `allowJs: true`.
 - No test framework set up. Manual testing by playing the game.
-- Character names must stay in sync between `voice-manager.ts` (ALL_PERSONAS) and `game-room.ts` (ALL_BOT_PERSONAS) and `client/src/useVoice.ts` (AGENT_NAMES).
+- Character names must stay in sync between `voice-manager.ts` (`ALL_PERSONAS`), `game-room.ts` (`ALL_BOT_PERSONAS`). Client gets names from server via `agentName` field in transcript messages.
 - Audio format throughout: 24kHz PCM16 mono, transmitted as base64 over WebSocket.
+- Use `rem` for sizing in landing page, `px` acceptable in game board for precise tile layout.
+- BGM file lives at `client/public/bgm.mp3`. Must be audio-only (not video container).
 
 ## Characters
 - **Grandpa** (voice: Clive) — supportive, tells old country stories, disfluencies: "ah," "well now," "you know"
@@ -77,3 +88,4 @@ cd client && npx vite build
 - **Lucky** (voice: Dennis) — 17yo e-sports gambler, teen slang, disfluencies: "like," "bro," "yo"
 - Gladys is Lucky's mom. Grandpa is Gladys' father (Lucky's great-grandpa).
 - Personas use Inworld audio markups: `[laugh]`, `[sigh]`, `[cough]`, `[clear_throat]`, `[breathe]`
+- Audio markups are stripped from transcript display via regex in `TranscriptLog.tsx`
