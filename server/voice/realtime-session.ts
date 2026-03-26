@@ -98,22 +98,30 @@ export class RealtimeSession {
             resolve();
             break;
 
-          // Agent audio output
+          // Cancel unsolicited auto-responses (e.g. greetings)
+          case 'response.created':
+            if (!this.responding) {
+              console.log(`[Voice] ${this.agentName}: cancelling unsolicited response`);
+              this._send({ type: 'response.cancel' });
+            }
+            break;
+
+          // Agent audio output — only emit if we explicitly requested a response
           case 'response.audio.delta':
           case 'response.output_audio.delta':
-            if (msg.delta) this.onAudioChunk?.(msg.delta);
+            if (msg.delta && this.responding) this.onAudioChunk?.(msg.delta);
             break;
 
           // Agent speech transcript (streaming)
           case 'response.audio_transcript.delta':
           case 'response.output_audio_transcript.delta':
-            if (msg.delta) this.onTranscript?.(msg.delta, false);
+            if (msg.delta && this.responding) this.onTranscript?.(msg.delta, false);
             break;
 
           // Agent speech transcript (final) — only emit once
           // Both output_audio_transcript.done and content_part.done fire with the same text
           case 'response.output_audio_transcript.done':
-            if (msg.transcript) {
+            if (msg.transcript && this.responding) {
               lastFinalTranscript = msg.transcript;
               this.onTranscript?.(msg.transcript, true);
             }
@@ -121,7 +129,7 @@ export class RealtimeSession {
 
           case 'response.content_part.done':
             // Skip if we already emitted this via output_audio_transcript.done
-            if (msg.part?.transcript && msg.part.transcript !== lastFinalTranscript) {
+            if (msg.part?.transcript && msg.part.transcript !== lastFinalTranscript && this.responding) {
               this.onTranscript?.(msg.part.transcript, true);
             }
             break;

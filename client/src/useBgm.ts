@@ -7,7 +7,7 @@ export function useBgm() {
   const getAudio = useCallback((): HTMLAudioElement => {
     if (!audioRef.current) {
       const audio = document.createElement('audio');
-      audio.src = '/bgm.mp4';
+      audio.src = '/bgm.mp3';
       audio.loop = true;
       audio.volume = 0.3;
       audioRef.current = audio;
