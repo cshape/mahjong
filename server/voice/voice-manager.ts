@@ -208,6 +208,12 @@ export class VoiceManager {
   private slowDiscardTimer: ReturnType<typeof setTimeout> | null = null;
   private slowDiscardFired = false;
 
+  /** Speech queue — pending (seatId, context) pairs waiting for the current speaker to finish */
+  private speechQueue: { seatId: number; context: string }[] = [];
+
+  /** When true, the next dispatcher response should interrupt current speech */
+  private nextDispatchIsUrgent = false;
+
   constructor(sendToClient: (msg: any) => void) {
     this.sendToClient = sendToClient;
   }
@@ -310,6 +316,8 @@ export class VoiceManager {
         if (this.cancelledAgentSeat === seatId) {
           this.cancelledAgentSeat = null;
         }
+        // Dequeue next pending speech
+        this._dequeueSpeech();
       };
 
       this.agentSessions.set(seatId, session);
@@ -500,13 +508,19 @@ export class VoiceManager {
       return;
     }
 
+    // Claims and wins are urgent — interrupt current speech
+    const isUrgent = event.type === 'turn:claim' || event.type === 'hand:win';
+    const ask = isUrgent
+      ? (c: string) => this._askDispatcherUrgent(c)
+      : (c: string) => this._askDispatcher(c);
+
     // Notable events — flush pending discards and send immediately
     if (this.discardBuffer.length > 0) {
       const batched = this.discardBuffer.join('\n');
       this.discardBuffer = [];
-      this._askDispatcher(batched + '\n' + context);
+      ask(batched + '\n' + context);
     } else {
-      this._askDispatcher(context);
+      ask(context);
     }
   }
 
@@ -515,6 +529,11 @@ export class VoiceManager {
     if (this.contextLog.length > MAX_CONTEXT_LINES) {
       this.contextLog = this.contextLog.slice(-MAX_CONTEXT_LINES);
     }
+  }
+
+  private _askDispatcherUrgent(context: string) {
+    this.nextDispatchIsUrgent = true;
+    this._askDispatcher(context);
   }
 
   private _askDispatcher(context: string) {
@@ -566,18 +585,73 @@ export class VoiceManager {
       return;
     }
 
+    const urgent = this.nextDispatchIsUrgent;
+    this.nextDispatchIsUrgent = false;
+
+    if (urgent) {
+      this._interruptForClaim(seatId);
+    } else {
+      this._queueSpeech(seatId);
+    }
+  }
+
+  /** Queue an agent to speak. If no one is speaking, speak immediately. */
+  private _queueSpeech(seatId: number) {
     const session = this.agentSessions.get(seatId);
     if (!session?.ready) {
       console.log(`[Voice] Agent session ${seatId} not ready`);
       return;
     }
 
-    const recentContext = this.contextLog.slice(-15).join('\n');
+    if (this.respondingAgentSeat === null) {
+      // No one speaking — go immediately
+      this._speakAgent(seatId);
+    } else {
+      // Someone is speaking — queue it (max 2 pending to avoid stale buildup)
+      if (this.speechQueue.length < 2) {
+        const context = this.contextLog.slice(-15).join('\n');
+        this.speechQueue.push({ seatId, context });
+        console.log(`[Voice] Queued ${this.botPersonas.get(seatId)} (${this.speechQueue.length} in queue)`);
+      }
+    }
+  }
+
+  /** Send context to an agent and mark them as responding */
+  private _speakAgent(seatId: number, context?: string) {
+    const session = this.agentSessions.get(seatId);
+    if (!session?.ready) return;
+
+    const ctx = context || this.contextLog.slice(-15).join('\n');
     const personaName = this.botPersonas.get(seatId);
     console.log(`[Voice] -> ${personaName} (responding to context)`);
-    session.sendContext(recentContext);
+    session.sendContext(ctx);
     this.respondingAgentSeat = seatId;
     this.cancelledAgentSeat = null;
+  }
+
+  /** Dequeue and speak the next pending agent */
+  private _dequeueSpeech() {
+    if (this.respondingAgentSeat !== null) return; // still speaking
+    if (this.speechQueue.length === 0) return;
+
+    const next = this.speechQueue.shift()!;
+    this._speakAgent(next.seatId, next.context);
+  }
+
+  /** Interrupt current speech and flush queue — used for claims/wins */
+  private _interruptForClaim(seatId: number) {
+    // Cancel current speaker
+    if (this.respondingAgentSeat !== null) {
+      const session = this.agentSessions.get(this.respondingAgentSeat);
+      session?.cancelResponse();
+      this.cancelledAgentSeat = this.respondingAgentSeat;
+      this.respondingAgentSeat = null;
+      this.sendToClient({ type: 'voice:interrupt', agentId: this.cancelledAgentSeat });
+    }
+    // Flush queue
+    this.speechQueue = [];
+    // Speak the claim immediately
+    this._speakAgent(seatId);
   }
 
   private _buildContext(event: any): string | null {
