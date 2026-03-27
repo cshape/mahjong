@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { PlayerArea } from './PlayerArea';
 import { DiscardPool } from './DiscardPool';
 import { ActionBar } from './ActionBar';
@@ -61,13 +61,17 @@ export function GameBoard({
     8: 'Pong!', 16: 'Kong!', 32: 'Mah Jong!',
   };
 
-  // Detect hand wins from events
+  // Detect hand wins from events — use ref so new game:state doesn't cancel the timer
+  const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const last = events[events.length - 1];
     if (last?.type === 'hand:win' && last.winner != null) {
       setWinnerId(last.winner);
-      const timer = setTimeout(() => setWinnerId(null), 5000);
-      return () => clearTimeout(timer);
+      if (winTimerRef.current) clearTimeout(winTimerRef.current);
+      winTimerRef.current = setTimeout(() => {
+        setWinnerId(null);
+        winTimerRef.current = null;
+      }, 5000);
     }
   }, [events]);
 
