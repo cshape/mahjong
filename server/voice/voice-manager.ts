@@ -197,6 +197,9 @@ export class VoiceManager {
   /** When true, AI characters don't vocalize (client toggled voice off) */
   private voicePaused = false;
 
+  /** Whether we've sent the initial greeting */
+  private greeted = false;
+
   /** Silence detection */
   private lastActivityTime = Date.now();
   private silenceTimer: ReturnType<typeof setInterval> | null = null;
@@ -444,6 +447,18 @@ export class VoiceManager {
       }
     }
     console.log(`[Voice] Voice ${paused ? 'paused' : 'resumed'}`);
+
+    // Trigger greeting on first voice:on
+    if (!paused && !this.greeted) {
+      this.greeted = true;
+      // Small delay to let audio pipeline settle
+      setTimeout(() => {
+        if (!this.voicePaused) {
+          const humanNames = this.humanSeats.map(s => this.playerNames[s]).join(', ');
+          this._askDispatcher(`[System] The game just started! Welcome the players (${humanNames}) to the mahjong table. Pick one character to greet them.`);
+        }
+      }, 1500);
+    }
   }
 
   /**
