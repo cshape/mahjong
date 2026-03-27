@@ -49,7 +49,7 @@ export function RulesPanel({ open, onClose }: RulesPanelProps) {
         right: 0,
         top: 0,
         width: 360,
-        height: '100vh',
+        height: '100dvh',
         background: theme.colors.bgCard,
         color: theme.colors.textPrimary,
         padding: 24,

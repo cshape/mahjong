@@ -59,7 +59,7 @@ function App() {
   if (screen === 'home') {
     return (
       <div style={{
-        height: '100vh',
+        height: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -237,7 +237,7 @@ function App() {
   if (!gameState) {
     return (
       <div style={{
-        height: '100vh',
+        height: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

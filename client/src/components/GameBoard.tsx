@@ -210,7 +210,7 @@ export function GameBoard({
   // ═══════════════════════════════════════════
   if (isMobile) {
     return (
-      <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', width: '100%', height: '100dvh', overflow: 'hidden' }}>
         <RulesPanel open={rulesOpen} onClose={() => setRulesOpen(false)} />
 
         {/* Mobile slide-out panels */}
@@ -218,7 +218,7 @@ export function GameBoard({
           <div onClick={() => setMobilePanel(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 80 }} />
         )}
         <div style={{
-          position: 'fixed', left: 0, top: 0, width: 300, height: '100vh',
+          position: 'fixed', left: 0, top: 0, width: 300, height: '100dvh',
           background: theme.colors.bgCard, zIndex: 81, padding: 12, overflowY: 'auto',
           transform: mobilePanel === 'log' ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 0.3s ease',
@@ -231,7 +231,7 @@ export function GameBoard({
           <EventLog events={events} players={gameState.players} />
         </div>
         <div style={{
-          position: 'fixed', right: 0, top: 0, width: 300, height: '100vh',
+          position: 'fixed', right: 0, top: 0, width: 300, height: '100dvh',
           background: theme.colors.bgCard, zIndex: 81, padding: 12, overflowY: 'auto',
           transform: mobilePanel === 'chat' ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.3s ease',
@@ -309,7 +309,7 @@ export function GameBoard({
   //  DESKTOP LAYOUT
   // ═══════════════════════════════════════════
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: '100vw', height: '100dvh', overflow: 'hidden' }}>
       <RulesPanel open={rulesOpen} onClose={() => setRulesOpen(false)} />
       <div style={{
         width: '100%', height: '100%', display: 'grid',
