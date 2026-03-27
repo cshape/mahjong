@@ -528,8 +528,14 @@ export class VoiceManager {
       { role: 'user', content: ctx },
     ];
 
-    // Set up abort controller for cancellation
+    // Set up abort controller with 30s timeout
     const abort = new AbortController();
+    const timeout = setTimeout(() => {
+      if (!abort.signal.aborted) {
+        console.warn(`[Voice] ${personaName}: response timed out after 30s`);
+        abort.abort();
+      }
+    }, 30000);
     this.respondingAgentSeat = seatId;
     this.respondingAbort = abort;
 
@@ -569,9 +575,8 @@ export class VoiceManager {
         }
       },
       onDone: (cancelled) => {
-        if (cancelled) {
-          console.log(`[Voice] ${personaName}: response cancelled`);
-        }
+        clearTimeout(timeout);
+        console.log(`[Voice] ${personaName}: done (cancelled=${cancelled}, responding=${this.respondingAgentSeat})`);
         if (this.respondingAgentSeat === seatId) {
           this.respondingAgentSeat = null;
           this.respondingAbort = null;

@@ -53,6 +53,7 @@ export function GameBoard({
   const [claimBanner, setClaimBanner] = useState<{ playerName: string; label: string } | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<'log' | 'chat' | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
   const isMobile = useIsMobile();
 
   const CLAIM_LABELS: Record<number, string> = {
@@ -254,6 +255,57 @@ export function GameBoard({
               ))}
             </div>
             <button onClick={onRestart} style={{ padding: '0.75rem 2rem', fontSize: 16, fontWeight: 700, backgroundColor: theme.colors.accent, color: '#fff', border: 'none', borderRadius: theme.radius.md, cursor: 'pointer', letterSpacing: 0.5, textTransform: 'uppercase' }}>Start New Game</button>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome popup */}
+      {showWelcome && (
+        <div
+          onClick={() => setShowWelcome(false)}
+          style={{
+            position: 'absolute', inset: 0, zIndex: 70,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.4)',
+            animation: 'fadeIn 0.3s ease-out',
+            cursor: 'pointer',
+          }}
+        >
+          <div style={{
+            background: theme.colors.bgCard,
+            borderRadius: theme.radius.lg,
+            padding: 'clamp(1.5rem, 4vw, 2.5rem)',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            maxWidth: 'clamp(280px, 80vw, 380px)',
+            animation: 'winBounce 0.4s ease-out',
+          }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 'clamp(32px, 6vw, 48px)', marginBottom: 8 }}>🀄</div>
+            <div style={{ fontSize: 'clamp(18px, 3vw, 24px)', fontWeight: 800, color: theme.colors.accent, marginBottom: 12 }}>
+              Welcome to Mahjong!
+            </div>
+            <p style={{ fontSize: 'clamp(13px, 2vw, 15px)', color: theme.colors.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
+              Your AI opponents will chat with you as you play. Need help with the rules? Tap the <b style={{ color: theme.colors.accent }}>?</b> button in the top {isMobile ? 'menu' : 'right'}.
+            </p>
+            <button
+              onClick={() => setShowWelcome(false)}
+              style={{
+                padding: '0.75rem 2rem',
+                fontSize: 'clamp(14px, 2vw, 16px)',
+                fontWeight: 700,
+                backgroundColor: theme.colors.accent,
+                color: '#fff',
+                border: 'none',
+                borderRadius: theme.radius.md,
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}
+            >
+              Let's Play!
+            </button>
           </div>
         </div>
       )}
