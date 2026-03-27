@@ -177,7 +177,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
             ...s.transcripts.slice(-49),
             {
               agentId: null,
-              agentName: 'You',
+              agentName: msg.playerName || 'Player',
               text: msg.text,
               final: true,
               timestamp: Date.now(),
