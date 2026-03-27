@@ -182,7 +182,6 @@ function App() {
                     outline: 'none',
                     backgroundColor: theme.colors.bgCard,
                     color: theme.colors.textPrimary,
-                    textAlign: 'center',
                     minWidth: 0,
                   }}
                 />
