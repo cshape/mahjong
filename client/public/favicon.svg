@@ -1,9 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-  <!-- Tile body -->
-  <rect x="6" y="2" width="36" height="44" rx="4" fill="#F5F0E8" stroke="#C8B090" stroke-width="2"/>
-  <!-- Inner border -->
-  <rect x="10" y="6" width="28" height="36" rx="2" fill="none" stroke="#D4C4A0" stroke-width="1"/>
-  <!-- Red dragon (中) -->
-  <rect x="14" y="10" width="20" height="28" rx="1" fill="none" stroke="#CC3333" stroke-width="3"/>
-  <text x="24" y="30" text-anchor="middle" font-family="serif" font-size="22" font-weight="bold" fill="#CC3333">中</text>
+  <rect x="3" y="0" width="42" height="48" rx="6" fill="#F5F0E8" stroke="#C8B090" stroke-width="2"/>
+  <text x="24" y="36" text-anchor="middle" font-family="serif" font-size="32" font-weight="bold" fill="#CC3333">中</text>
 </svg>
