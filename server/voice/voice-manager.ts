@@ -2,15 +2,15 @@
  * VoiceManager: orchestrates voice for the mahjong game.
  *
  * Architecture:
- * - 1 STT session per human player: transcribes their mic audio via Whisper
- * - 1 Dispatcher session (text-only): receives labeled transcripts + game events,
- *   decides who should speak ("speak: Name" or "silence")
- * - 1 Agent session per bot seat: has a persona, receives context, generates speech
+ * - 1 STT WebSocket per human player (Inworld STT API)
+ * - Dispatcher: on-demand LLM HTTP calls (decides who speaks)
+ * - Agents: on-demand LLM+TTS streaming HTTP calls (generates speech)
  *
- * Agent sessions and personas are only created for bot seats.
- * Bot personas are randomly selected from the pool of 3.
+ * No persistent agent connections — each response is a fresh HTTP stream.
  */
-import { RealtimeSession, AgentConfig } from './realtime-session.js';
+import { SttSession } from './stt-session.js';
+import { askDispatcher } from './dispatcher.js';
+import { generateSpeech, type LlmTtsMessage } from './llm-tts.js';
 import { TILE_NAMES } from '../config.js';
 
 const CLAIM_LABELS: Record<number, string> = {
@@ -77,8 +77,11 @@ const SILENCE_CHECK_INTERVAL = 5000;
 /** If human takes longer than this to discard, characters comment (ms) */
 const SLOW_DISCARD_THRESHOLD = 10000;
 
-/** Max context lines to keep per agent session */
+/** Max context lines to keep */
 const MAX_CONTEXT_LINES = 30;
+
+/** Max conversation history per agent */
+const MAX_AGENT_HISTORY = 20;
 
 function buildDispatcherInstructions(
   playerNames: string[],
@@ -99,7 +102,6 @@ function buildDispatcherInstructions(
   const botNames = botSeats.map(s => playerNames[s]).join(', ');
 
   if (humanCount === 1) {
-    // Single human: be generous with chatter (original behavior)
     return `You are the voice director for a 4-player Cantonese mahjong game. There is 1 human and ${botCount} AI players. The human is the only real person — the AI players are the human's companions, so be GENEROUS with their chatter to keep the table lively and fun.
 
 PLAYERS:
@@ -132,7 +134,6 @@ GENERAL:
 - Err on the side of MORE speech, not less. A lively table is better than a silent one.`;
   }
 
-  // Multi-human: be more selective
   return `You are the voice director for a 4-player Cantonese mahjong game. There are ${humanCount} human players and ${botCount} AI player${botCount !== 1 ? 's' : ''}.
 
 PLAYERS:
@@ -172,36 +173,45 @@ GENERAL:
 - Let the humans have their conversation. AI adds flavor, not dominance.`;
 }
 
+interface PersonaConfig {
+  name: string;
+  voice: string;
+  instructions: string;
+}
+
 export class VoiceManager {
-  private agentSessions = new Map<number, RealtimeSession>();
-  private sttSessions = new Map<number, RealtimeSession>();
-  private dispatcher: RealtimeSession | null = null;
+  private sttSessions = new Map<number, SttSession>();
   private lastSpeakTime = 0;
   private sendToClient: (msg: any) => void;
   private playerNames: string[] = [];
   private humanSeats: number[] = [];
   private botSeats: number[] = [];
   private botPersonas = new Map<number, string>(); // seatId → persona name
+  private personaConfigs = new Map<number, PersonaConfig>(); // seatId → full persona
   private agentNameToSeat = new Map<string, number>(); // lowercase name → seatId
   private dispatchQueue: Promise<void> = Promise.resolve();
   private discardBuffer: string[] = [];
 
-  /** Running context shared with all agent sessions */
+  /** Running context shared across all interactions */
   private contextLog: string[] = [];
+
+  /** Per-agent conversation history for LLM calls */
+  private agentHistory = new Map<number, LlmTtsMessage[]>();
 
   /** Seat ID of the agent currently generating a response, or null */
   private respondingAgentSeat: number | null = null;
-  private cancelledAgentSeat: number | null = null;
+  /** AbortController for the current LLM+TTS stream */
+  private respondingAbort: AbortController | null = null;
+
+  /** Dispatcher instructions (built once at init) */
+  private dispatcherInstructions = '';
   private dispatcherInFlight = false;
 
-  /** When true, AI characters don't vocalize (client toggled voice off) */
+  /** When true, AI characters don't vocalize */
   private voicePaused = false;
 
   /** Whether we've sent the initial greeting */
   private greeted = false;
-
-  /** Whether agent sessions have been primed with audio data */
-  private agentAudioPrimed = false;
 
   /** Silence detection */
   private lastActivityTime = Date.now();
@@ -211,10 +221,8 @@ export class VoiceManager {
   private slowDiscardTimer: ReturnType<typeof setTimeout> | null = null;
   private slowDiscardFired = false;
 
-  /** Speech queue — pending (seatId, context) pairs waiting for the current speaker to finish */
+  /** Speech queue */
   private speechQueue: { seatId: number; context: string }[] = [];
-
-  /** When true, the next dispatcher response should interrupt current speech */
   private nextDispatchIsUrgent = false;
 
   constructor(sendToClient: (msg: any) => void) {
@@ -235,110 +243,43 @@ export class VoiceManager {
       return;
     }
 
-    // No bots = no voice needed
     if (botSeats.length === 0) {
       console.log('[Voice] No bot seats, skipping voice initialization');
       return;
     }
 
-    const connectPromises: Promise<void>[] = [];
-
-    // Build a lookup from persona name to persona config
+    // Set up persona configs for each bot
     const personaByName = new Map(ALL_PERSONAS.map(p => [p.name, p]));
 
     for (let i = 0; i < botSeats.length; i++) {
       const seatId = botSeats[i];
-      // Use the name already assigned by GameRoom (via playerNames)
       const assignedName = playerNames[seatId];
       const persona = personaByName.get(assignedName) || ALL_PERSONAS[i];
       this.botPersonas.set(seatId, persona.name);
+      this.personaConfigs.set(seatId, persona);
+      this.agentHistory.set(seatId, []);
 
       // Build name lookup (lowercase variants)
       const nameLower = persona.name.toLowerCase();
       this.agentNameToSeat.set(nameLower, seatId);
-      // Add partial name lookups
       for (const part of nameLower.split(' ')) {
         this.agentNameToSeat.set(part, seatId);
       }
-
-      const agentConfig: AgentConfig = {
-        name: persona.name,
-        voice: persona.voice,
-        mode: 'agent',
-        instructions: persona.instructions,
-      };
-
-      const session = new RealtimeSession(agentConfig);
-
-      session.onAudioChunk = (base64pcm) => {
-        if (this.voicePaused) return;
-        if (this.cancelledAgentSeat === seatId) return;
-        if (this.respondingAgentSeat !== seatId) {
-          // Ghost audio — agent is responding without being asked
-          console.warn(`[Voice] Ghost audio from ${persona.name} (seat ${seatId}), expected seat ${this.respondingAgentSeat}. Cancelling.`);
-          session.cancelResponse();
-          return;
-        }
-        this.sendToClient({
-          type: 'voice:audio',
-          agentId: seatId,
-          audio: base64pcm,
-        });
-      };
-
-      session.onTranscript = (text, final) => {
-        if (this.voicePaused) return;
-        if (this.cancelledAgentSeat === seatId) return;
-        if (this.respondingAgentSeat !== seatId) {
-          // Ghost transcript — cancel it
-          session.cancelResponse();
-          return;
-        }
-        this.sendToClient({
-          type: 'voice:transcript',
-          agentId: seatId,
-          agentName: persona.name,
-          text,
-          final,
-        });
-        if (final) {
-          this.lastSpeakTime = Date.now();
-          this._touchActivity();
-          this.respondingAgentSeat = null;
-          this._addContext(`[${persona.name}]: ${text}`);
-        }
-      };
-
-      session.onResponseDone = (cancelled) => {
-        if (cancelled) {
-          console.log(`[Voice] ${persona.name}: response cancelled`);
-        }
-        if (this.respondingAgentSeat === seatId) {
-          this.respondingAgentSeat = null;
-        }
-        if (this.cancelledAgentSeat === seatId) {
-          this.cancelledAgentSeat = null;
-        }
-        // Dequeue next pending speech
-        this._dequeueSpeech();
-      };
-
-      this.agentSessions.set(seatId, session);
-      connectPromises.push(session.connect());
     }
 
-    // Create STT sessions for each human player
+    // Build dispatcher instructions
+    this.dispatcherInstructions = buildDispatcherInstructions(
+      playerNames, humanSeats, botSeats, this.botPersonas,
+    );
+
+    // Connect STT sessions for each human player
+    const connectPromises: Promise<void>[] = [];
+
     for (const seatId of humanSeats) {
       const humanName = playerNames[seatId];
-      const sttConfig: AgentConfig = {
-        name: `STT-${humanName}`,
-        voice: '',
-        mode: 'stt',
-        instructions: '',
-      };
-      const sttSession = new RealtimeSession(sttConfig);
+      const sttSession = new SttSession(humanName);
 
-      sttSession.onHumanTranscript = (text) => {
+      sttSession.onTranscript = (text) => {
         console.log(`[Voice] ${humanName} (seat ${seatId}): "${text}"`);
         this.sendToClient({
           type: 'voice:human_transcript',
@@ -355,36 +296,27 @@ export class VoiceManager {
       connectPromises.push(sttSession.connect());
     }
 
-    // Create dispatcher session (text-only, no audio)
-    const dispatcherInstructions = buildDispatcherInstructions(
-      playerNames, humanSeats, botSeats, this.botPersonas,
-    );
-    const dispatcherConfig: AgentConfig = {
-      name: 'Dispatcher',
-      voice: '',
-      mode: 'dispatcher',
-      instructions: dispatcherInstructions,
-    };
-    this.dispatcher = new RealtimeSession(dispatcherConfig);
-
-    this.dispatcher.onTextResponse = (text) => {
-      this._handleDispatcherResponse(text);
-    };
-
-    connectPromises.push(this.dispatcher.connect());
-
     try {
       await Promise.all(connectPromises);
-      console.log(`[Voice] All sessions connected (${this.agentSessions.size} agents, ${this.sttSessions.size} STT, 1 dispatcher)`);
+      console.log(`[Voice] ${this.sttSessions.size} STT session(s) connected. Dispatcher + agents use on-demand HTTP.`);
     } catch (err) {
-      console.error('[Voice] Failed to connect some sessions:', err);
+      console.error('[Voice] Failed to connect STT sessions:', err);
     }
 
-    // Start silence detection timer
+    // Start silence detection
     this.lastActivityTime = Date.now();
     this.silenceTimer = setInterval(() => {
       this._checkSilence();
     }, SILENCE_CHECK_INTERVAL);
+
+    // Trigger greeting immediately — no audio graph needed anymore
+    this.greeted = true;
+    setTimeout(() => {
+      if (!this.voicePaused) {
+        const humanNames = this.humanSeats.map(s => this.playerNames[s]).join(', ');
+        this._askDispatcher(`[System] The game just started! Welcome the players (${humanNames}) to the mahjong table. Pick one character to greet them.`);
+      }
+    }, 2000);
   }
 
   /**
@@ -393,47 +325,20 @@ export class VoiceManager {
   private _onHumanSpeech(humanName: string, text: string) {
     this._touchActivity();
     if (this.voicePaused) return;
+
+    // Interrupt current agent if speaking
     if (this.respondingAgentSeat !== null) {
-      // Interrupt: an agent is mid-response
-      const seat = this.respondingAgentSeat;
-      const session = this.agentSessions.get(seat);
-      const personaName = this.botPersonas.get(seat);
-      console.log(`[Voice] Interrupting ${personaName} (seat ${seat}) for ${humanName}'s speech`);
-
-      session?.cancelResponse();
-      this.cancelledAgentSeat = seat;
-      this.respondingAgentSeat = null;
-
-      this.sendToClient({ type: 'voice:interrupt', agentId: seat });
-
-      if (this.dispatcherInFlight && this.dispatcher) {
-        this.dispatcher.cancelResponse();
-        this.dispatcherInFlight = false;
-      }
-
-      if (this.dispatcher?.ready) {
-        const context = `[${humanName} says]: "${text}"`;
-        console.log(`[Voice] Dispatcher <- ${context} (re-dispatch after interrupt)`);
-        this.dispatcherInFlight = true;
-        this.dispatcher.sendContext(context);
-      }
-    } else {
-      // Normal: no agent is speaking
-      if (this.dispatcherInFlight && this.dispatcher) {
-        this.dispatcher.cancelResponse();
-        this.dispatcherInFlight = false;
-      }
-
-      if (this.dispatcher?.ready) {
-        const context = `[${humanName} says]: "${text}"`;
-        console.log(`[Voice] Dispatcher <- ${context}`);
-        this.dispatcherInFlight = true;
-        this.dispatcher.sendContext(context);
-      }
+      const personaName = this.botPersonas.get(this.respondingAgentSeat);
+      console.log(`[Voice] Interrupting ${personaName} for ${humanName}'s speech`);
+      this._cancelCurrentResponse();
     }
+
+    const context = `[${humanName} says]: "${text}"`;
+    console.log(`[Voice] Dispatcher <- ${context}`);
+    this._askDispatcherDirect(context);
   }
 
-  /** Handle text chat from a human player — treat like speech for AI responses */
+  /** Handle text chat from a human player */
   onTextChat(playerName: string, text: string) {
     this._addContext(`[${playerName}]: ${text}`);
     this._touchActivity();
@@ -441,64 +346,29 @@ export class VoiceManager {
     this._onHumanSpeech(playerName, text);
   }
 
-  /** Pause all AI vocalization (client turned voice off) */
+  /** Pause all AI vocalization */
   setVoicePaused(paused: boolean) {
     this.voicePaused = paused;
     if (paused) {
-      // Cancel any in-progress response
-      if (this.respondingAgentSeat !== null) {
-        const session = this.agentSessions.get(this.respondingAgentSeat);
-        session?.cancelResponse();
-        this.cancelledAgentSeat = this.respondingAgentSeat;
-        this.respondingAgentSeat = null;
-      }
-      if (this.dispatcherInFlight && this.dispatcher) {
-        this.dispatcher.cancelResponse();
-        this.dispatcherInFlight = false;
-      }
+      this._cancelCurrentResponse();
+      this.speechQueue = [];
     }
     console.log(`[Voice] Voice ${paused ? 'paused' : 'resumed'}`);
   }
 
-  /**
-   * Route mic audio from a specific human player to their STT session.
-   */
+  /** Route mic audio to STT session */
   onMicAudio(seatId: number, base64pcm: string) {
     const sttSession = this.sttSessions.get(seatId);
     if (sttSession?.ready) {
       sttSession.sendAudio(base64pcm);
     }
-
-    // Prime agent audio graphs with mic audio so they can accept text prompts.
-    // Only needed until the first audio chunk has been sent to each agent.
-    if (!this.agentAudioPrimed) {
-      this.agentAudioPrimed = true;
-      for (const session of this.agentSessions.values()) {
-        if (session.ready) {
-          session.sendAudio(base64pcm);
-        }
-      }
-    }
-
-    // Trigger greeting once mic audio is actually flowing
-    if (!this.greeted && !this.voicePaused) {
-      this.greeted = true;
-      setTimeout(() => {
-        if (!this.voicePaused) {
-          const humanNames = this.humanSeats.map(s => this.playerNames[s]).join(', ');
-          this._askDispatcher(`[System] The game just started! Welcome the players (${humanNames}) to the mahjong table. Pick one character to greet them.`);
-        }
-      }, 2000);
-    }
   }
 
-  /**
-   * Called by GameRoom on game events.
-   */
+  /** Called by GameRoom on game events */
   onGameEvent(event: any) {
     this._touchActivity();
 
-    // Track slow discards for human players (before context check, since turn:draw has no context)
+    // Track slow discards for human players
     if (event.type === 'turn:draw' && this.humanSeats.includes(event.playerId)) {
       this._startSlowDiscardTimer(this.playerNames[event.playerId]);
     } else if (event.type === 'turn:discard' && this.humanSeats.includes(event.playerId)) {
@@ -537,12 +407,7 @@ export class VoiceManager {
     }
   }
 
-  private _addContext(line: string) {
-    this.contextLog.push(line);
-    if (this.contextLog.length > MAX_CONTEXT_LINES) {
-      this.contextLog = this.contextLog.slice(-MAX_CONTEXT_LINES);
-    }
-  }
+  // ─── Dispatcher ───
 
   private _askDispatcherUrgent(context: string) {
     this.nextDispatchIsUrgent = true;
@@ -559,17 +424,26 @@ export class VoiceManager {
         await sleep(SPEECH_COOLDOWN - sinceLastSpeak);
       }
 
-      if (this.dispatcher?.ready) {
-        console.log(`[Voice] Dispatcher <- ${context}`);
-        this.dispatcherInFlight = true;
-        this.dispatcher.sendContext(context);
-      }
+      await this._askDispatcherDirect(context);
     });
   }
 
-  private _handleDispatcherResponse(text: string) {
-    this.dispatcherInFlight = false;
+  private async _askDispatcherDirect(context: string) {
+    if (this.voicePaused) return;
+    this.dispatcherInFlight = true;
 
+    console.log(`[Voice] Dispatcher <- ${context}`);
+    const recentContext = this.contextLog.slice(-15).join('\n') + '\n' + context;
+    const response = await askDispatcher({
+      instructions: this.dispatcherInstructions,
+      context: recentContext,
+    });
+
+    this.dispatcherInFlight = false;
+    this._handleDispatcherResponse(response);
+  }
+
+  private _handleDispatcherResponse(text: string) {
     console.log(`[Voice] Dispatcher -> ${text}`);
 
     const lower = text.toLowerCase().trim();
@@ -608,19 +482,12 @@ export class VoiceManager {
     }
   }
 
-  /** Queue an agent to speak. If no one is speaking, speak immediately. */
-  private _queueSpeech(seatId: number) {
-    const session = this.agentSessions.get(seatId);
-    if (!session?.ready) {
-      console.log(`[Voice] Agent session ${seatId} not ready`);
-      return;
-    }
+  // ─── Speech Queue ───
 
+  private _queueSpeech(seatId: number) {
     if (this.respondingAgentSeat === null) {
-      // No one speaking — go immediately
       this._speakAgent(seatId);
     } else {
-      // Someone is speaking — queue it (max 2 pending to avoid stale buildup)
       if (this.speechQueue.length < 2) {
         const context = this.contextLog.slice(-15).join('\n');
         this.speechQueue.push({ seatId, context });
@@ -629,42 +496,108 @@ export class VoiceManager {
     }
   }
 
-  /** Send context to an agent and mark them as responding */
-  private _speakAgent(seatId: number, context?: string) {
-    const session = this.agentSessions.get(seatId);
-    if (!session?.ready) return;
-
-    const ctx = context || this.contextLog.slice(-15).join('\n');
-    const personaName = this.botPersonas.get(seatId);
-    console.log(`[Voice] -> ${personaName} (responding to context)`);
-    session.sendContext(ctx);
-    this.respondingAgentSeat = seatId;
-    this.cancelledAgentSeat = null;
-  }
-
-  /** Dequeue and speak the next pending agent */
   private _dequeueSpeech() {
-    if (this.respondingAgentSeat !== null) return; // still speaking
+    if (this.respondingAgentSeat !== null) return;
     if (this.speechQueue.length === 0) return;
 
     const next = this.speechQueue.shift()!;
     this._speakAgent(next.seatId, next.context);
   }
 
-  /** Interrupt current speech and flush queue — used for claims/wins */
   private _interruptForClaim(seatId: number) {
-    // Cancel current speaker
-    if (this.respondingAgentSeat !== null) {
-      const session = this.agentSessions.get(this.respondingAgentSeat);
-      session?.cancelResponse();
-      this.cancelledAgentSeat = this.respondingAgentSeat;
-      this.respondingAgentSeat = null;
-      this.sendToClient({ type: 'voice:interrupt', agentId: this.cancelledAgentSeat });
-    }
-    // Flush queue
+    this._cancelCurrentResponse();
     this.speechQueue = [];
-    // Speak the claim immediately
     this._speakAgent(seatId);
+  }
+
+  private _cancelCurrentResponse() {
+    if (this.respondingAgentSeat !== null) {
+      this.respondingAbort?.abort();
+      this.sendToClient({ type: 'voice:interrupt', agentId: this.respondingAgentSeat });
+      this.respondingAgentSeat = null;
+      this.respondingAbort = null;
+    }
+  }
+
+  // ─── Agent Speech (LLM+TTS) ───
+
+  private _speakAgent(seatId: number, context?: string) {
+    const persona = this.personaConfigs.get(seatId);
+    if (!persona) return;
+
+    const ctx = context || this.contextLog.slice(-15).join('\n');
+    const personaName = persona.name;
+    console.log(`[Voice] -> ${personaName} (generating speech)`);
+
+    // Build messages for the LLM
+    const history = this.agentHistory.get(seatId) || [];
+    const messages: LlmTtsMessage[] = [
+      { role: 'system', content: persona.instructions },
+      ...history,
+      { role: 'user', content: ctx },
+    ];
+
+    // Set up abort controller for cancellation
+    const abort = new AbortController();
+    this.respondingAgentSeat = seatId;
+    this.respondingAbort = abort;
+
+    generateSpeech({
+      voice: persona.voice,
+      messages,
+      onAudioChunk: (base64pcm) => {
+        if (this.voicePaused || this.respondingAgentSeat !== seatId) return;
+        this.sendToClient({
+          type: 'voice:audio',
+          agentId: seatId,
+          audio: base64pcm,
+        });
+      },
+      onTranscript: (text, final) => {
+        if (this.voicePaused || this.respondingAgentSeat !== seatId) return;
+        this.sendToClient({
+          type: 'voice:transcript',
+          agentId: seatId,
+          agentName: personaName,
+          text,
+          final,
+        });
+        if (final) {
+          this.lastSpeakTime = Date.now();
+          this._touchActivity();
+          this._addContext(`[${personaName}]: ${text}`);
+
+          // Update conversation history
+          const hist = this.agentHistory.get(seatId) || [];
+          hist.push({ role: 'user', content: ctx });
+          hist.push({ role: 'assistant', content: text });
+          // Cap history
+          if (hist.length > MAX_AGENT_HISTORY) {
+            this.agentHistory.set(seatId, hist.slice(-MAX_AGENT_HISTORY));
+          }
+        }
+      },
+      onDone: (cancelled) => {
+        if (cancelled) {
+          console.log(`[Voice] ${personaName}: response cancelled`);
+        }
+        if (this.respondingAgentSeat === seatId) {
+          this.respondingAgentSeat = null;
+          this.respondingAbort = null;
+        }
+        this._dequeueSpeech();
+      },
+      signal: abort.signal,
+    });
+  }
+
+  // ─── Context & Events ───
+
+  private _addContext(line: string) {
+    this.contextLog.push(line);
+    if (this.contextLog.length > MAX_CONTEXT_LINES) {
+      this.contextLog = this.contextLog.slice(-MAX_CONTEXT_LINES);
+    }
   }
 
   private _buildContext(event: any): string | null {
@@ -674,48 +607,42 @@ export class VoiceManager {
     switch (event.type) {
       case 'turn:discard':
         return `[Game] ${name(event.playerId)} discarded ${tileName(event.tile)}.`;
-
       case 'turn:claim': {
         const label = CLAIM_LABELS[event.claimType] || 'Claim';
         return `[Game] ${name(event.playerId)} claimed ${tileName(event.tile)} for a ${label}!`;
       }
-
       case 'hand:win':
         return `[Game] ${name(event.playerId)} won the hand! Mah Jong!`;
-
       case 'hand:draw':
         return `[Game] The hand ended in a draw. No winner this round.`;
-
       case 'game:end':
         return `[Game] The game is over! Final scores: ${
           this.playerNames.map((n, i) => `${n}: ${event.scores?.[i] ?? 0}`).join(', ')
         }`;
-
       default:
         return null;
     }
   }
 
-  /** Update activity timestamp to reset silence detection */
+  // ─── Timers ───
+
   private _touchActivity() {
     this.lastActivityTime = Date.now();
   }
 
-  /** Check if the table has been silent too long and nudge the dispatcher */
   private _checkSilence() {
-    if (!this.dispatcher?.ready) return;
-    if (this.respondingAgentSeat !== null) return; // someone is already speaking
+    if (this.respondingAgentSeat !== null) return;
     if (this.dispatcherInFlight) return;
+    if (this.voicePaused) return;
 
     const elapsed = Date.now() - this.lastActivityTime;
     if (elapsed >= SILENCE_THRESHOLD) {
       console.log(`[Voice] Silence detected (${Math.round(elapsed / 1000)}s), nudging dispatcher`);
-      this._touchActivity(); // reset so we don't spam
+      this._touchActivity();
       this._askDispatcher('[System] It\'s been quiet at the table for a while. Someone should say something to keep things lively.');
     }
   }
 
-  /** Start tracking a human player's discard time */
   private _startSlowDiscardTimer(humanName: string) {
     this._clearSlowDiscardTimer();
     this.slowDiscardFired = false;
@@ -727,7 +654,6 @@ export class VoiceManager {
     }, SLOW_DISCARD_THRESHOLD);
   }
 
-  /** Clear the slow discard timer */
   private _clearSlowDiscardTimer() {
     if (this.slowDiscardTimer) {
       clearTimeout(this.slowDiscardTimer);
@@ -741,16 +667,11 @@ export class VoiceManager {
       this.silenceTimer = null;
     }
     this._clearSlowDiscardTimer();
-    for (const session of this.agentSessions.values()) {
-      session.close();
-    }
+    this._cancelCurrentResponse();
     for (const session of this.sttSessions.values()) {
       session.close();
     }
-    this.dispatcher?.close();
-    this.agentSessions.clear();
     this.sttSessions.clear();
-    this.dispatcher = null;
   }
 }
 

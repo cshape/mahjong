@@ -67,7 +67,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     const f32 = base64ToFloat32(base64);
     if (f32.length === 0) return;
 
-    const buf = ctx.createBuffer(1, f32.length, 24000);
+    const buf = ctx.createBuffer(1, f32.length, 48000);
     buf.getChannelData(0).set(f32);
     const src = ctx.createBufferSource();
     src.buffer = buf;
@@ -214,7 +214,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
   const startVoice = useCallback(async () => {
     try {
       // Playback context
-      const playbackCtx = new AudioContext({ sampleRate: 24000 });
+      const playbackCtx = new AudioContext({ sampleRate: 48000 });
       if (playbackCtx.state === 'suspended') await playbackCtx.resume();
       playbackCtxRef.current = playbackCtx;
 
