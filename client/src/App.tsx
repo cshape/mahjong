@@ -99,12 +99,12 @@ function App() {
         <div style={{ width: '20rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <input
             type="text"
-            placeholder="Enter your name"
+            placeholder="Your name"
             value={playerName}
             onChange={e => setPlayerName(e.target.value)}
             autoFocus
             style={{
-              padding: '0.75rem 1.25rem',
+              padding: '0.75rem 1rem',
               fontSize: '1rem',
               border: `2px solid ${theme.colors.border}`,
               borderRadius: theme.radius.md,
@@ -113,100 +113,116 @@ function App() {
               boxSizing: 'border-box',
               backgroundColor: theme.colors.bgCard,
               color: theme.colors.textPrimary,
-              textAlign: 'center',
             }}
           />
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button
-              onClick={() => playerName.trim() && createGame(playerName.trim())}
-              disabled={!playerName.trim()}
-              style={{
-                flex: 1,
-                padding: '0.875rem 0',
-                fontSize: '1rem',
-                fontWeight: 700,
-                backgroundColor: playerName.trim() ? theme.colors.accent : theme.colors.textMuted,
-                color: '#fff',
-                border: 'none',
-                borderRadius: theme.radius.md,
-                cursor: playerName.trim() ? 'pointer' : 'not-allowed',
-                opacity: playerName.trim() ? 1 : 0.4,
-                letterSpacing: 0.5,
-                textTransform: 'uppercase',
-              }}
-            >
-              Create Game
-            </button>
-            <button
-              onClick={() => setShowJoinInput(!showJoinInput)}
-              style={{
-                flex: 1,
-                padding: '0.875rem 0',
-                fontSize: '1rem',
-                fontWeight: 700,
-                backgroundColor: 'transparent',
-                color: theme.colors.accent,
-                border: `2px solid ${theme.colors.accent}`,
-                borderRadius: theme.radius.md,
-                cursor: 'pointer',
-                letterSpacing: 0.5,
-                textTransform: 'uppercase',
-              }}
-            >
-              Join Game
-            </button>
-          </div>
+          {!showJoinInput ? (
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => playerName.trim() && createGame(playerName.trim())}
+                disabled={!playerName.trim()}
+                style={{
+                  flex: 1,
+                  padding: '0.875rem 0',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  backgroundColor: playerName.trim() ? theme.colors.accent : theme.colors.textMuted,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: theme.radius.md,
+                  cursor: playerName.trim() ? 'pointer' : 'not-allowed',
+                  opacity: playerName.trim() ? 1 : 0.4,
+                  letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Create Game
+              </button>
+              <button
+                onClick={() => setShowJoinInput(true)}
+                style={{
+                  flex: 1,
+                  padding: '0.875rem 0',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  backgroundColor: 'transparent',
+                  color: theme.colors.accent,
+                  border: `2px solid ${theme.colors.accent}`,
+                  borderRadius: theme.radius.md,
+                  cursor: 'pointer',
+                  letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                Join Game
+              </button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Game code"
+                  value={joinCode}
+                  onChange={e => setJoinCode(e.target.value.toUpperCase().slice(0, 4))}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && playerName.trim() && joinCode.length === 4) {
+                      joinGame(playerName.trim(), joinCode);
+                    }
+                  }}
+                  autoFocus
+                  maxLength={4}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem 1rem',
+                    fontSize: '1.125rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.25rem',
+                    border: `2px solid ${theme.colors.border}`,
+                    borderRadius: theme.radius.md,
+                    outline: 'none',
+                    backgroundColor: theme.colors.bgCard,
+                    color: theme.colors.textPrimary,
+                    textAlign: 'center',
+                    minWidth: 0,
+                  }}
+                />
+                <button
+                  onClick={() => playerName.trim() && joinCode.length === 4 && joinGame(playerName.trim(), joinCode)}
+                  disabled={!playerName.trim() || joinCode.length !== 4}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    backgroundColor: (playerName.trim() && joinCode.length === 4) ? theme.colors.accent : theme.colors.textMuted,
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: theme.radius.md,
+                    cursor: (playerName.trim() && joinCode.length === 4) ? 'pointer' : 'not-allowed',
+                    opacity: (playerName.trim() && joinCode.length === 4) ? 1 : 0.4,
+                    flexShrink: 0,
+                  }}
+                >
+                  Join
+                </button>
+              </div>
+              <button
+                onClick={() => { setShowJoinInput(false); setJoinCode(''); }}
+                style={{
+                  padding: '0.5rem',
+                  fontSize: '0.875rem',
+                  color: theme.colors.textMuted,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                }}
+              >
+                ← Back
+              </button>
+            </>
+          )}
         </div>
-
-        {/* Join Code Input */}
-        {showJoinInput && (
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-            <input
-              type="text"
-              placeholder="Enter code"
-              value={joinCode}
-              onChange={e => setJoinCode(e.target.value.toUpperCase().slice(0, 4))}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && playerName.trim() && joinCode.length === 4) {
-                  joinGame(playerName.trim(), joinCode);
-                }
-              }}
-              autoFocus
-              maxLength={4}
-              style={{
-                padding: '0.625rem 1rem',
-                fontSize: '1.25rem',
-                fontWeight: 700,
-                letterSpacing: '0.375rem',
-                border: `2px solid ${theme.colors.border}`,
-                borderRadius: theme.radius.md,
-                outline: 'none',
-                width: '8.75rem',
-                backgroundColor: theme.colors.bgCard,
-                color: theme.colors.textPrimary,
-                textAlign: 'center',
-              }}
-            />
-            <button
-              onClick={() => playerName.trim() && joinCode.length === 4 && joinGame(playerName.trim(), joinCode)}
-              disabled={!playerName.trim() || joinCode.length !== 4}
-              style={{
-                padding: '0.625rem 1.5rem',
-                fontSize: '0.875rem',
-                fontWeight: 700,
-                backgroundColor: (playerName.trim() && joinCode.length === 4) ? theme.colors.accent : theme.colors.textMuted,
-                color: '#fff',
-                border: 'none',
-                borderRadius: theme.radius.md,
-                cursor: (playerName.trim() && joinCode.length === 4) ? 'pointer' : 'not-allowed',
-                opacity: (playerName.trim() && joinCode.length === 4) ? 1 : 0.4,
-              }}
-            >
-              Join
-            </button>
-          </div>
-        )}
 
         {error && (
           <p style={{ color: '#d44', fontSize: '0.875rem', marginTop: '0.5rem' }}>{error}</p>
