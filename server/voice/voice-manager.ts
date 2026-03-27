@@ -291,6 +291,18 @@ export class VoiceManager {
       const humanName = playerNames[seatId];
       const sttSession = new SttSession(humanName);
 
+      // Interrupt AI speech immediately when human starts talking
+      sttSession.onSpeechStarted = () => {
+        if (this.voicePaused) return;
+        if (this.respondingAgentSeat !== null) {
+          const personaName = this.botPersonas.get(this.respondingAgentSeat);
+          console.log(`[Voice] Interrupting ${personaName} — ${humanName} started speaking`);
+          this._cancelCurrentResponse();
+          this.speechQueue = [];
+        }
+      };
+
+      // Process final transcript — send to dispatcher for AI response
       sttSession.onTranscript = (text) => {
         console.log(`[Voice] ${humanName} (seat ${seatId}): "${text}"`);
         this.sendToClient({
@@ -340,14 +352,8 @@ export class VoiceManager {
     this._touchActivity();
     if (this.voicePaused) return;
 
-    // Interrupt current agent if speaking
-    if (this.respondingAgentSeat !== null) {
-      const personaName = this.botPersonas.get(this.respondingAgentSeat);
-      console.log(`[Voice] Interrupting ${personaName} for ${humanName}'s speech`);
-      this._cancelCurrentResponse();
-      this.speechQueue = [];
-    }
-
+    // Interrupt already handled by onSpeechStarted (fires on first interim result).
+    // By the time we get here (final transcript), AI speech is already stopped.
     const context = `[${humanName} says]: "${text}"`;
     this._askDispatcher(context);
   }

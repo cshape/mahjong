@@ -18,6 +18,8 @@ export class SttSession {
 
   /** Fires when a final transcript is available */
   onTranscript?: (text: string) => void;
+  /** Fires on first speech detected (interim result) — use for immediate interrupt */
+  onSpeechStarted?: () => void;
 
   constructor(playerName: string) {
     this.playerName = playerName;
@@ -60,11 +62,22 @@ export class SttSession {
         resolve();
       });
 
+      let speechDetected = false;
+
       this.ws.on('message', (raw: WebSocket.RawData) => {
         try {
           const msg = JSON.parse(raw.toString());
           const transcription = msg?.result?.transcription;
-          if (transcription?.transcript && transcription.isFinal) {
+          if (!transcription?.transcript) return;
+
+          // Fire speech-started on first interim result (immediate interrupt)
+          if (!speechDetected) {
+            speechDetected = true;
+            this.onSpeechStarted?.();
+          }
+
+          if (transcription.isFinal) {
+            speechDetected = false; // reset for next utterance
             this.onTranscript?.(transcription.transcript);
           }
         } catch {
