@@ -25,9 +25,9 @@ const CLAIM_LABELS: Record<number, string> = {
 };
 
 const ALL_BOT_PERSONAS = [
-  { name: 'Grandpa', voice: 'Clive' },
-  { name: 'Gladys', voice: 'Eleanor' },
-  { name: 'Lucky', voice: 'Dennis' },
+  { name: 'Grandpa', voice: 'Theodore' },
+  { name: 'Gladys', voice: 'Loretta' },
+  { name: 'Lucky', voice: 'Avery' },
 ];
 
 /** How long to wait for a disconnected player to reconnect before converting to bot (ms) */
