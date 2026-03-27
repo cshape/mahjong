@@ -28,7 +28,7 @@ const CLAIM_LABELS: Record<number, string> = {
 /** Common rules appended to every persona's instructions */
 const COMMON_RULES = `
 CONTEXT FORMAT:
-- "[Game] Grandpa claimed..." means that action was YOUR action if you are Grandpa. Speak in first person about your own actions ("I got a Pong!"), not third person ("Go Grandpa!").
+- "[Game] Grandpa claimed..." means that action was YOUR action if you are Grandpa. React naturally in first person ("Yes! I needed that."), not third person ("Go Grandpa!"). Don't just repeat the claim name — comment on it like a real person would.
 - "[Game] Gladys discarded..." is another player's action if you are not Gladys.
 - "[PlayerName]: text" is what someone said.
 - "[System]" messages are prompts for you to speak.
@@ -49,7 +49,7 @@ const ALL_PERSONAS: { name: string; voice: string; instructions: string }[] = [
 
 Your style: warm, gentle, nostalgic. Filler words like "ah," "well now," "you know," "hmm."
 Occasionally start a brief anecdote: "That reminds me of when..." but keep it to one sentence.
-When you claim tiles (Pong, Sheung, Kong) — express warm pride. When others claim — be supportive.
+When you claim tiles — express warm satisfaction ("Ah, I *needed* that one."). When others claim — be supportive or mildly impressed.
 ${COMMON_RULES}`,
   },
   {
@@ -59,8 +59,8 @@ ${COMMON_RULES}`,
 Lucky is your son. You nag him. Grandpa is your father.
 
 Your style: cranky, complaining, sarcastic but not cruel. Filler words like "ugh," "oh for crying out loud," "well..."
-When you or anyone gets a Sheung — genuine delight: "Oh, now *that's* nice."
-When you claim other tiles — grudging satisfaction. When others claim — complain or snark.
+When you or anyone gets a Sheung — genuine delight ("Oh, now *that's* nice.").
+When you claim other tiles — grudging satisfaction ("Well, about time."). When others claim — complain about it or snark ("Oh great, just what I needed, him getting *more* tiles.").
 ${COMMON_RULES}`,
   },
   {
@@ -69,8 +69,8 @@ ${COMMON_RULES}`,
     instructions: `You are Lucky, a 17-year-old who loves gambling. You're a successful e-sports gambler. You don't really know what you want to do with your life beyond NBA, gambling, and mah jong. You're cocky but not mean. Gladys is your mom, Grandpa is your great-grandpa.
 
 Your style: gen z slang, short bursts, competitive energy. Filler words like "like," "bro," "yo," "nah," "I mean," "no cap," "lowkey."
-When you claim tiles — pump yourself up: "Pong! Let's *go*!" or "Yeah, I *called* that."
-When others claim — trash talk or act unbothered.
+When you claim tiles — hype yourself up ("Yes! I *needed* that, let's go!" or "That's what I'm talking about.").
+When others claim — trash talk or act unbothered ("Whatever bro, I'm still winning this.").
 ${COMMON_RULES}`,
   },
 ];
@@ -236,7 +236,6 @@ export class VoiceManager {
 
   /** Speech queue */
   private speechQueue: { seatId: number; context: string }[] = [];
-  private nextDispatchIsUrgent = false;
 
   constructor(sendToClient: (msg: any) => void) {
     this.sendToClient = sendToClient;
@@ -350,7 +349,7 @@ export class VoiceManager {
     }
 
     const context = `[${humanName} says]: "${text}"`;
-    this._askDispatcherUrgent(context);
+    this._askDispatcher(context);
   }
 
   /** Handle text chat from a human player */
@@ -406,28 +405,17 @@ export class VoiceManager {
       return;
     }
 
-    // Claims and wins are urgent — interrupt current speech
-    const isUrgent = event.type === 'turn:claim' || event.type === 'hand:win';
-    const ask = isUrgent
-      ? (c: string) => this._askDispatcherUrgent(c)
-      : (c: string) => this._askDispatcher(c);
-
     // Notable events — flush pending discards and send immediately
     if (this.discardBuffer.length > 0) {
       const batched = this.discardBuffer.join('\n');
       this.discardBuffer = [];
-      ask(batched + '\n' + context);
+      this._askDispatcher(batched + '\n' + context);
     } else {
-      ask(context);
+      this._askDispatcher(context);
     }
   }
 
   // ─── Dispatcher ───
-
-  private _askDispatcherUrgent(context: string) {
-    this.nextDispatchIsUrgent = true;
-    this._askDispatcher(context);
-  }
 
   private _askDispatcher(context: string) {
     this.dispatchQueue = this.dispatchQueue.then(async () => {
@@ -488,14 +476,7 @@ export class VoiceManager {
       return;
     }
 
-    const urgent = this.nextDispatchIsUrgent;
-    this.nextDispatchIsUrgent = false;
-
-    if (urgent) {
-      this._interruptForClaim(seatId);
-    } else {
-      this._queueSpeech(seatId);
-    }
+    this._queueSpeech(seatId);
   }
 
   // ─── Speech Queue ───
@@ -518,12 +499,6 @@ export class VoiceManager {
 
     const next = this.speechQueue.shift()!;
     this._speakAgent(next.seatId, next.context);
-  }
-
-  private _interruptForClaim(seatId: number) {
-    this._cancelCurrentResponse();
-    this.speechQueue = [];
-    this._speakAgent(seatId);
   }
 
   private _cancelCurrentResponse() {
