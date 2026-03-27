@@ -39,8 +39,8 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Per-agent playback scheduling
-  const nextPlayTimeRef = useRef<Record<number, number>>({});
+  // Global playback scheduling — ensures no overlap between any agents
+  const nextPlayTimeRef = useRef(0);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,10 +74,10 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     src.connect(ctx.destination);
 
     const now = ctx.currentTime;
-    const nextTime = nextPlayTimeRef.current[agentId] || 0;
+    const nextTime = nextPlayTimeRef.current;
     const startTime = Math.max(now, nextTime);
     src.start(startTime);
-    nextPlayTimeRef.current[agentId] = startTime + buf.duration;
+    nextPlayTimeRef.current = startTime + buf.duration;
 
     activeSourcesRef.current.push(src);
     src.onended = () => {
@@ -101,8 +101,8 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     activeSourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
     activeSourcesRef.current = [];
 
-    // Reset playback scheduling for this agent
-    nextPlayTimeRef.current[agentId] = 0;
+    // Reset global playback scheduling
+    nextPlayTimeRef.current = 0;
 
     // Clear speaking indicator
     if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
@@ -310,7 +310,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     // Flush playback
     activeSourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
     activeSourcesRef.current = [];
-    nextPlayTimeRef.current = {};
+    nextPlayTimeRef.current = 0;
     if (playbackCtxRef.current) {
       playbackCtxRef.current.close();
       playbackCtxRef.current = null;
