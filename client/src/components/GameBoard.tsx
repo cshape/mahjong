@@ -349,6 +349,11 @@ export function GameBoard({
               <span>{WIND_NAMES[gameState.wind]?.[0]}</span>
               <span>W<b style={{ color: theme.colors.accent }}>{gameState.wallRemaining}</b></span>
             </div>
+            {bgm && (
+              <button onClick={bgm.toggle} style={circleBtn(bgm.playing)} title={bgm.playing ? 'Pause music' : 'Play music'}>
+                {bgm.playing ? '⏸' : '♫'}
+              </button>
+            )}
             <button onClick={() => setMobileMenu(m => !m)} style={circleBtn(mobileMenu)} title="Menu">☰</button>
           </div>
           {/* Board */}

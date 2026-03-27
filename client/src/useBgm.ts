@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-const DEFAULT_VOLUME = 0.3;
+const DEFAULT_VOLUME = 0.2;
 const TRACKS = ['/bgm_new.mp3', '/bgm.mp3'];
 
 export function useBgm() {
