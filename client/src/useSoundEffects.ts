@@ -40,25 +40,44 @@ function playTilePlace() {
   src.start(t);
 }
 
-/** Two-tone chime for claims (Pong, Sheung, Kong) */
+/** Punchy three-tone chime for claims (Pong, Sheung, Kong) */
 function playClaimChime() {
   const ctx = getCtx();
   const t = ctx.currentTime;
 
-  [523, 659].forEach((freq, i) => {
+  // Quick ascending power chord
+  [440, 554, 659].forEach((freq, i) => {
     const osc = ctx.createOscillator();
-    osc.type = 'triangle';
+    osc.type = 'square';
     osc.frequency.value = freq;
 
     const gain = ctx.createGain();
-    const start = t + i * 0.1;
-    gain.gain.setValueAtTime(0.25, start);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+    const start = t + i * 0.06;
+    gain.gain.setValueAtTime(0.2, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
 
     osc.connect(gain).connect(ctx.destination);
     osc.start(start);
-    osc.stop(start + 0.35);
+    osc.stop(start + 0.45);
   });
+
+  // Impact thud
+  const bufLen = ctx.sampleRate * 0.08;
+  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.1));
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 300;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.35, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start(t);
 }
 
 /** Celebration fanfare for Mah Jong win — ascending arpeggio + shimmer */

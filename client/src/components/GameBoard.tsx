@@ -50,9 +50,15 @@ export function GameBoard({
   const [showLog, setShowLog] = useState(true);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [winnerId, setWinnerId] = useState<number | null>(null);
+  const [claimBanner, setClaimBanner] = useState<{ playerName: string; label: string } | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<'log' | 'chat' | null>(null);
   const isMobile = useIsMobile();
+
+  const CLAIM_LABELS: Record<number, string> = {
+    2: 'Sheung!', 4: 'Sheung!', 5: 'Sheung!', 6: 'Sheung!',
+    8: 'Pong!', 16: 'Kong!', 32: 'Mah Jong!',
+  };
 
   // Detect hand wins from events
   useEffect(() => {
@@ -60,6 +66,18 @@ export function GameBoard({
     if (last?.type === 'hand:win' && last.winner != null) {
       setWinnerId(last.winner);
       const timer = setTimeout(() => setWinnerId(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [events]);
+
+  // Detect claims from events
+  useEffect(() => {
+    const last = events[events.length - 1];
+    if (last?.type === 'turn:claim' && last.claimType && last.claimType !== 32) {
+      const label = CLAIM_LABELS[last.claimType] || 'Claim!';
+      const playerName = gameState.players[last.playerId!]?.name || 'Player';
+      setClaimBanner({ playerName, label });
+      const timer = setTimeout(() => setClaimBanner(null), 2000);
       return () => clearTimeout(timer);
     }
   }, [events]);
@@ -176,6 +194,42 @@ export function GameBoard({
   // ── Shared overlays ──
   const overlays = (
     <>
+      {/* Claim banner */}
+      {claimBanner && !winnerId && gameState.phase !== 'finished' && (
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: '30%', zIndex: 45,
+          display: 'flex', justifyContent: 'center',
+          pointerEvents: 'none',
+          animation: 'claimSlam 0.4s ease-out',
+        }}>
+          <div style={{
+            background: 'rgba(0,0,0,0.7)',
+            borderRadius: 16,
+            padding: 'clamp(12px, 2vw, 20px) clamp(24px, 4vw, 48px)',
+            textAlign: 'center',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{
+              fontSize: 'clamp(28px, 5vw, 48px)',
+              fontWeight: 800,
+              color: '#fff',
+              textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+              letterSpacing: 2,
+            }}>
+              {claimBanner.label}
+            </div>
+            <div style={{
+              fontSize: 'clamp(14px, 2vw, 18px)',
+              color: 'rgba(255,255,255,0.8)',
+              fontWeight: 600,
+              marginTop: 4,
+            }}>
+              {claimBanner.playerName}
+            </div>
+          </div>
+        </div>
+      )}
+
       {winnerId != null && gameState.phase !== 'finished' && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', animation: 'fadeIn 0.3s ease-out', pointerEvents: 'none' }}>
           <div style={{ textAlign: 'center', animation: 'winBounce 0.5s ease-out' }}>
