@@ -93,11 +93,6 @@ export class RealtimeSession {
           case 'session.updated':
             clearTimeout(timeout);
             this.ready = true;
-            // Prime the audio graph with a small silence buffer so agent
-            // sessions can accept text-only prompts (input_text)
-            if (this.config.mode === 'agent') {
-              this._sendSilence();
-            }
             console.log(`[Voice] ${this.agentName}: session ready`);
             this.onReady?.();
             resolve();
@@ -310,18 +305,6 @@ export class RealtimeSession {
       type: 'input_audio_buffer.append',
       audio: base64pcm,
     });
-  }
-
-  /** Send a short silence buffer to activate the audio graph */
-  private _sendSilence() {
-    // 100ms of silence at 24kHz PCM16 mono = 4800 bytes
-    const silence = Buffer.alloc(4800, 0);
-    this._send({
-      type: 'input_audio_buffer.append',
-      audio: silence.toString('base64'),
-    });
-    // Commit the buffer so the API processes it
-    this._send({ type: 'input_audio_buffer.commit' });
   }
 
   private _send(obj: any) {
