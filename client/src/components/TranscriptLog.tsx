@@ -8,9 +8,12 @@ const AGENT_COLORS: Record<number, string> = {
   3: '#4A6EBF', // Lucky - deep blue
 };
 
-/** Strip audio markup tags like [laugh], [sigh], etc. from display text */
+/** Strip audio markup tags and emphasis markers from display text */
 function stripMarkup(text: string): string {
-  return text.replace(/\[[\w_]+\]\s*/g, '').trim();
+  return text
+    .replace(/\[[\w_]+\]\s*/g, '')  // [laugh], [sigh], etc.
+    .replace(/\*(\w[^*]*\w)\*/g, '$1')  // *emphasis* → emphasis
+    .trim();
 }
 
 interface TranscriptLogProps {

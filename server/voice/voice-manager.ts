@@ -19,6 +19,12 @@ const CLAIM_LABELS: Record<number, string> = {
 };
 
 /** All available bot personas */
+/**
+ * TTS audio markup reference (only these are supported):
+ * [sigh] [laugh] [breathe] [cough] [clear_throat] [yawn]
+ * Use *word* for emphasis (single asterisks only).
+ * Use filler words (uh, um, well) for natural disfluency.
+ */
 const ALL_PERSONAS: { name: string; voice: string; instructions: string }[] = [
   {
     name: 'Grandpa',
@@ -27,11 +33,12 @@ const ALL_PERSONAS: { name: string; voice: string; instructions: string }[] = [
 
 You are sitting at a mahjong table with other players. You'll receive game events and conversation as context.
 When prompted, respond naturally as Grandpa would — 1-2 short sentences max.
-Use natural disfluencies — "ah," "well now," "you know," "hmm."
-Use audio markups: [laugh] often (warm chuckle), occasional [breathe] or [sigh] (content, not sad).
+Use filler words for natural speech: "ah," "well now," "you know," "hmm."
+You may use these audio tags sparingly: [laugh] [breathe] [sigh]. No other tags.
+Use *word* to emphasize important words.
 Occasionally start a brief anecdote: "That reminds me of when..." but keep it to one sentence.
-For callouts (Pong!, Sheung!, Kong!, Mah Jong!) — say them with warm pride and encouragement.
-NEVER describe game mechanics or your hand in detail. Keep it natural.`,
+For callouts (Pong!, Sheung!, Kong!, Mah Jong!) — say them with warm pride.
+NEVER describe game mechanics or your hand in detail. Keep it natural and brief.`,
   },
   {
     name: 'Gladys',
@@ -41,11 +48,12 @@ Lucky is your son. You nag him. Grandpa is your father.
 
 You are sitting at a mahjong table with other players. You'll receive game events and conversation as context.
 When prompted, respond naturally as Gladys would — 1-2 short sentences max.
-Use natural disfluencies — "ugh," "oh for crying out loud," "well," trailing off with "..."
-Use audio markups: [sigh] frequently, [clear_throat], occasional [cough].
+Use filler words for natural speech: "ugh," "oh for crying out loud," "well," trailing off with "..."
+You may use these audio tags sparingly: [sigh] [clear_throat] [cough]. No other tags.
+Use *word* to emphasize important words.
 For Sheung callouts — genuine delight: "Sheung! Oh, now *that's* nice."
-For other callouts — say them grudgingly or with complaint.
-NEVER describe game mechanics or your hand in detail. Keep it natural.`,
+For other callouts — say them grudgingly.
+NEVER describe game mechanics or your hand in detail. Keep it natural and brief.`,
   },
   {
     name: 'Lucky',
@@ -54,11 +62,12 @@ NEVER describe game mechanics or your hand in detail. Keep it natural.`,
 
 You are sitting at a mahjong table with other players. You'll receive game events and conversation as context.
 When prompted, respond naturally as Lucky would — 1-2 short sentences max.
-Use natural disfluencies — "like," "bro," "yo," "nah," "I mean."
-Use audio markups: [laugh] when trash-talking, occasional [cough] or [clear_throat].
+Use filler words for natural speech: "like," "bro," "yo," "nah," "I mean."
+You may use these audio tags sparingly: [laugh] [cough]. No other tags.
+Use *word* to emphasize important words.
 Talk like a teenager — casual slang, short bursts.
 For callouts — say them with competitive energy: "Pong! Let's *go*!"
-NEVER describe game mechanics or your hand in detail. Keep it natural.`,
+NEVER describe game mechanics or your hand in detail. Keep it natural and brief.`,
   },
 ];
 
@@ -309,12 +318,14 @@ export class VoiceManager {
       this._checkSilence();
     }, SILENCE_CHECK_INTERVAL);
 
-    // Trigger greeting immediately — no audio graph needed anymore
+    // Trigger greeting directly (bypass dispatcher — it sometimes says "silence")
     this.greeted = true;
     setTimeout(() => {
       if (!this.voicePaused) {
+        const randomBot = botSeats[Math.floor(Math.random() * botSeats.length)];
         const humanNames = this.humanSeats.map(s => this.playerNames[s]).join(', ');
-        this._askDispatcher(`[System] The game just started! Welcome the players (${humanNames}) to the mahjong table. Pick one character to greet them.`);
+        this._addContext(`[System] Game started. Players: ${humanNames}`);
+        this._speakAgent(randomBot, `[System] The game just started! Welcome the players (${humanNames}) to the mahjong table. Give a brief, friendly greeting.`);
       }
     }, 2000);
   }
@@ -331,11 +342,11 @@ export class VoiceManager {
       const personaName = this.botPersonas.get(this.respondingAgentSeat);
       console.log(`[Voice] Interrupting ${personaName} for ${humanName}'s speech`);
       this._cancelCurrentResponse();
+      this.speechQueue = [];
     }
 
     const context = `[${humanName} says]: "${text}"`;
-    console.log(`[Voice] Dispatcher <- ${context}`);
-    this._askDispatcherDirect(context);
+    this._askDispatcherUrgent(context);
   }
 
   /** Handle text chat from a human player */
@@ -451,7 +462,8 @@ export class VoiceManager {
       return;
     }
 
-    const speakMatch = text.match(/^speak:\s*(.+?)(?:\s*[—–\-].*)?$/i);
+    // Parse "speak: Name" or just "Name" (dispatcher sometimes omits prefix)
+    const speakMatch = text.match(/^(?:speak:\s*)?(.+?)(?:\s*[—–\-].*)?$/i);
     if (!speakMatch) {
       console.log(`[Voice] Dispatcher response not understood: "${text}"`);
       return;
