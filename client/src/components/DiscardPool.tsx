@@ -122,9 +122,9 @@ export function DiscardPool({ players, lastDiscard, seatId = 0 }: DiscardPoolPro
             pointerEvents: 'none',
           }}
         >
-          <Tile tile={spotlight.tile} />
+          <Tile tile={spotlight.tile} large />
           <span style={{
-            fontSize: 11,
+            fontSize: 'clamp(10px, 1.2vw, 14px)',
             color: theme.colors.textSecondary,
             fontWeight: 700,
             textShadow: '0 1px 3px rgba(255,255,255,0.5)',

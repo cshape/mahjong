@@ -19,4 +19,19 @@ export const theme = {
   },
   radius: { sm: 8, md: 12, lg: 16, xl: 20 },
   font: "'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif",
+  /** Shared modal card style for landing/lobby screens */
+  modalCard: {
+    width: 'clamp(300px, 85vw, 400px)',
+    aspectRatio: '1',
+    background: 'rgba(255,245,237,0.95)',
+    borderRadius: 20,
+    boxShadow: '0 8px 40px rgba(100,70,50,0.2)',
+    border: '1px solid rgba(210,160,130,0.3)',
+    backdropFilter: 'blur(8px)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 'clamp(1.25rem, 4vw, 2rem)',
+  },
 };

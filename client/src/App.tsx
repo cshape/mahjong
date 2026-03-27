@@ -86,17 +86,16 @@ function App() {
           )
         `,
       }}>
-        <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <h1 style={{
-            fontSize: '3rem', fontWeight: 800, marginBottom: 0,
-            background: 'linear-gradient(135deg, #F2836B, #E06B55)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>麻雀 Mahjong</h1>
-        </div>
+        <div style={theme.modalCard}>
+        <h1 style={{
+          fontSize: 'clamp(2rem, 6vw, 3rem)', fontWeight: 800, marginBottom: 'clamp(1rem, 3vw, 2rem)',
+          background: 'linear-gradient(135deg, #F2836B, #E06B55)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textAlign: 'center',
+        }}>麻雀 Mahjong</h1>
 
-        {/* Name + Buttons container */}
-        <div style={{ width: '20rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <input
             type="text"
             placeholder="Your name"
@@ -233,6 +232,7 @@ function App() {
             Connecting...
           </p>
         )}
+        </div>{/* end modal card */}
       </div>
     );
   }

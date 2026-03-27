@@ -1,6 +1,8 @@
-import { CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { TILE_NAMES, TILE_GLYPHS } from '../types';
 import { theme } from '../theme';
+
+type TileSize = 'small' | 'normal' | 'large';
 
 interface TileProps {
   tile: number;
@@ -9,8 +11,16 @@ interface TileProps {
   lastDrawn?: boolean;
   onClick?: () => void;
   small?: boolean;
+  large?: boolean;
   animated?: boolean;
 }
+
+/** Responsive tile dimensions using clamp(min, preferred, max) */
+const SIZES: Record<TileSize, { w: string; h: string; font: string; label: string; margin: string; radius: number }> = {
+  small:  { w: 'clamp(24px, 3.5vw, 36px)',  h: 'clamp(32px, 4.5vw, 48px)',  font: 'clamp(16px, 2.5vw, 26px)',  label: 'clamp(6px, 0.8vw, 9px)',   margin: '1px', radius: 6 },
+  normal: { w: 'clamp(36px, 4.5vw, 58px)',  h: 'clamp(48px, 6vw, 76px)',    font: 'clamp(26px, 3.5vw, 44px)',  label: 'clamp(8px, 0.9vw, 11px)',  margin: '2px', radius: 8 },
+  large:  { w: 'clamp(54px, 7vw, 90px)',    h: 'clamp(72px, 9vw, 120px)',   font: 'clamp(40px, 5.5vw, 68px)',  label: 'clamp(10px, 1.2vw, 15px)', margin: '2px', radius: 10 },
+};
 
 function getTileColor(tile: number): string {
   if (tile < 9) return '#2e7d32';   // bamboo - green
@@ -35,25 +45,23 @@ function getTileSuitLabel(tile: number): string {
   return `B${tile - 33}`;
 }
 
-export function Tile({ tile, hidden, selected, lastDrawn, onClick, small, animated }: TileProps) {
-  const w = small ? 34 : 54;
-  const h = small ? 44 : 72;
-  const fontSize = small ? 24 : 40;
+export function Tile({ tile, hidden, selected, lastDrawn, onClick, small, large, animated }: TileProps) {
+  const size = large ? SIZES.large : small ? SIZES.small : SIZES.normal;
 
   if (hidden) {
     return (
       <div style={{
-        width: w, height: h,
+        width: size.w, height: size.h,
         background: `linear-gradient(145deg, ${theme.colors.tileBack} 0%, #C08A70 100%)`,
         borderTop: '1px solid #DEB8A0',
         borderLeft: '1px solid #DEB8A0',
         borderRight: '1px solid #B07860',
         borderBottom: '2px solid #A06850',
-        borderRadius: 8,
+        borderRadius: size.radius,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        margin: 1,
+        margin: size.margin,
         boxShadow: '0 1px 3px rgba(100,70,50,0.2)',
       }} />
     );
@@ -62,11 +70,10 @@ export function Tile({ tile, hidden, selected, lastDrawn, onClick, small, animat
   const unicode = TILE_NAMES[tile];
   const label = getTileSuitLabel(tile);
   const color = getTileColor(tile);
-
   const isHighlighted = selected || lastDrawn;
 
   const style: CSSProperties = {
-    width: w, height: h,
+    width: size.w, height: size.h,
     background: selected
       ? 'linear-gradient(to bottom, #FFF0E8, #FFE4D6)'
       : `linear-gradient(to bottom, ${theme.colors.tileFace}, #F0E8D8)`,
@@ -74,12 +81,12 @@ export function Tile({ tile, hidden, selected, lastDrawn, onClick, small, animat
     borderLeft: isHighlighted ? `2px solid ${theme.colors.accent}` : '2px solid #F0E8DC',
     borderRight: isHighlighted ? `2px solid ${theme.colors.accent}` : '2px solid #D8CFC0',
     borderBottom: isHighlighted ? `2px solid ${theme.colors.accent}` : '3px solid #C8BCA8',
-    borderRadius: 8,
+    borderRadius: size.radius,
     display: 'inline-flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: small ? 1 : 2,
+    margin: size.margin,
     cursor: onClick ? 'pointer' : 'default',
     boxShadow: selected
       ? `0 0 10px rgba(242,131,107,0.5), 0 2px 4px rgba(100,70,50,0.15)`
@@ -102,9 +109,9 @@ export function Tile({ tile, hidden, selected, lastDrawn, onClick, small, animat
 
   return (
     <div onClick={onClick} style={style} title={`${TILE_GLYPHS[tile]}`}>
-      <span style={{ fontSize, lineHeight: 1, marginTop: -2 }}>{unicode}</span>
+      <span style={{ fontSize: size.font, lineHeight: 1, marginTop: -2 }}>{unicode}</span>
       <span style={{
-        fontSize: small ? 8 : 10,
+        fontSize: size.label,
         color,
         fontWeight: 800,
         letterSpacing: 0.5,

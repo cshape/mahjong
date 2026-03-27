@@ -9,6 +9,12 @@ interface WaitingRoomProps {
   onStart: () => void;
 }
 
+const bambooBackground = `
+  repeating-linear-gradient(90deg, transparent, transparent 1.5rem, rgba(160,120,60,0.08) 1.5rem, rgba(160,120,60,0.08) 1.55rem),
+  repeating-linear-gradient(0deg, transparent, transparent 6rem, rgba(120,80,30,0.06) 6rem, rgba(120,80,30,0.06) 6.1rem),
+  linear-gradient(170deg, #D4C4A0 0%, #C8B68C 30%, #DACCB0 50%, #C4B288 80%, #D0C098 100%)
+`;
+
 export function WaitingRoom({ roomCode, seatId, lobbyState, onStart }: WaitingRoomProps) {
   const [copied, setCopied] = useState(false);
   const isHost = seatId === 0;
@@ -25,107 +31,83 @@ export function WaitingRoom({ roomCode, seatId, lobbyState, onStart }: WaitingRo
       height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
-      background: 'radial-gradient(ellipse at center, #D4E8CC 0%, #E8F0E4 50%, #C8DCBC 100%)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: bambooBackground,
       fontFamily: theme.font,
     }}>
-      {/* Scrollable content */}
       <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1.5rem 1rem',
+        ...theme.modalCard,
+        aspectRatio: undefined, // allow taller for seat list
+        maxHeight: 'clamp(420px, 85vh, 600px)',
+        gap: 'clamp(0.75rem, 2vw, 1.25rem)',
       }}>
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>🀄</div>
-          <h2 style={{
-            fontSize: 28, fontWeight: 700, color: theme.colors.textPrimary, margin: 0,
-          }}>
-            Waiting for Players
-          </h2>
-        </div>
+        <h2 style={{
+          fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 700,
+          color: theme.colors.textPrimary, margin: 0,
+        }}>
+          Waiting for Players
+        </h2>
 
         {/* Game Code */}
-        <div style={{
-          background: theme.colors.bgCard,
-          borderRadius: theme.radius.lg,
-          padding: '1.25rem 2.5rem',
-          marginBottom: '1.5rem',
-          textAlign: 'center',
-          boxShadow: theme.colors.shadow,
-        }}>
-          <div style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 'clamp(10px, 1.5vw, 12px)', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
             Game Code
           </div>
           <div style={{
-            fontSize: 48, fontWeight: 800, letterSpacing: 8,
-            color: theme.colors.accent,
-            cursor: 'pointer',
+            fontSize: 'clamp(2rem, 7vw, 3rem)', fontWeight: 800, letterSpacing: '0.4em',
+            color: theme.colors.accent, cursor: 'pointer',
           }} onClick={copyCode} title="Click to copy">
             {roomCode}
           </div>
           <button onClick={copyCode} style={{
-            marginTop: 8,
-            padding: '6px 16px',
-            fontSize: 13,
-            background: 'transparent',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: theme.radius.sm,
-            color: theme.colors.textSecondary,
-            cursor: 'pointer',
+            marginTop: 4, padding: '4px 12px', fontSize: 12,
+            background: 'transparent', border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.radius.sm, color: theme.colors.textSecondary, cursor: 'pointer',
           }}>
             {copied ? 'Copied!' : 'Copy Code'}
           </button>
         </div>
 
         {/* Seat List */}
-        <div style={{
-          background: theme.colors.bgCard,
-          borderRadius: theme.radius.lg,
-          padding: '1.25rem',
-          width: '100%',
-          maxWidth: 320,
-          boxShadow: theme.colors.shadow,
-        }}>
+        <div style={{ width: '100%', flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {[0, 1, 2, 3].map(i => {
             const seat = lobbyState?.seats[i];
             const windLabels = ['East', 'South', 'West', 'North'];
             return (
               <div key={i} style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '10px 0',
+                display: 'flex', alignItems: 'center',
+                padding: 'clamp(6px, 1vw, 10px) 0',
                 borderBottom: i < 3 ? `1px solid ${theme.colors.border}` : 'none',
               }}>
                 <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
+                  width: 'clamp(28px, 5vw, 36px)', height: 'clamp(28px, 5vw, 36px)', borderRadius: '50%',
                   background: seat ? (seat.isBot ? theme.colors.lavender : theme.colors.accent) : 'rgba(0,0,0,0.05)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 700, fontSize: 14,
-                  marginRight: 12, flexShrink: 0,
+                  color: '#fff', fontWeight: 700, fontSize: 'clamp(11px, 1.5vw, 14px)',
+                  marginRight: 'clamp(8px, 1.5vw, 12px)', flexShrink: 0,
                 }}>
                   {seat ? (seat.isBot ? 'AI' : seat.name[0].toUpperCase()) : '?'}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontWeight: 600, fontSize: 15,
+                    fontWeight: 600, fontSize: 'clamp(13px, 1.8vw, 15px)',
                     color: seat ? theme.colors.textPrimary : theme.colors.textMuted,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {seat ? seat.name : 'Empty (AI will fill)'}
                     {seat && !seat.isBot && i === seatId && (
-                      <span style={{ fontSize: 11, color: theme.colors.textMuted, marginLeft: 6 }}>(you)</span>
+                      <span style={{ fontSize: 'clamp(9px, 1.2vw, 11px)', color: theme.colors.textMuted, marginLeft: 6 }}>(you)</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: theme.colors.textMuted }}>
+                  <div style={{ fontSize: 'clamp(10px, 1.2vw, 12px)', color: theme.colors.textMuted }}>
                     {windLabels[i]} Wind
                   </div>
                 </div>
                 {i === 0 && seat && !seat.isBot && (
                   <div style={{
-                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                    color: theme.colors.accent, letterSpacing: 0.5,
+                    fontSize: 'clamp(8px, 1vw, 10px)', fontWeight: 700, textTransform: 'uppercase',
+                    color: theme.colors.accent, letterSpacing: 0.5, flexShrink: 0,
                   }}>Host</div>
                 )}
               </div>
@@ -133,43 +115,26 @@ export function WaitingRoom({ roomCode, seatId, lobbyState, onStart }: WaitingRo
           })}
         </div>
 
-        <p style={{
-          marginTop: '1rem', fontSize: 13, color: theme.colors.textMuted, textAlign: 'center',
-        }}>
-          {humanCount}/4 players joined &middot; Share the code to invite friends
-        </p>
-      </div>
-
-      {/* Bottom-anchored start button — always visible */}
-      <div style={{
-        flexShrink: 0,
-        padding: '1rem',
-        display: 'flex',
-        justifyContent: 'center',
-        background: 'linear-gradient(transparent, rgba(200,220,188,0.8))',
-      }}>
+        {/* Start / Waiting */}
         {isHost ? (
           <button onClick={onStart} style={{
-            padding: '1rem 3rem',
-            fontSize: 18,
-            fontWeight: 700,
-            backgroundColor: theme.colors.accent,
-            color: '#fff',
-            border: 'none',
-            borderRadius: theme.radius.md,
-            cursor: 'pointer',
-            letterSpacing: 0.5,
-            textTransform: 'uppercase',
-            width: '100%',
-            maxWidth: 320,
+            padding: 'clamp(0.625rem, 1.5vw, 0.875rem) 2rem',
+            fontSize: 'clamp(14px, 2vw, 18px)', fontWeight: 700,
+            backgroundColor: theme.colors.accent, color: '#fff',
+            border: 'none', borderRadius: theme.radius.md, cursor: 'pointer',
+            letterSpacing: 0.5, textTransform: 'uppercase', width: '100%',
           }}>
             Start Game {humanCount < 4 && `(${4 - humanCount} AI)`}
           </button>
         ) : (
-          <p style={{ color: theme.colors.textSecondary, fontSize: 15, margin: 0 }}>
-            Waiting for host to start the game...
+          <p style={{ color: theme.colors.textSecondary, fontSize: 'clamp(13px, 1.5vw, 15px)', margin: 0, textAlign: 'center' }}>
+            Waiting for host to start...
           </p>
         )}
+
+        <p style={{ fontSize: 'clamp(10px, 1.2vw, 13px)', color: theme.colors.textMuted, textAlign: 'center', margin: 0 }}>
+          {humanCount}/4 players &middot; Share the code to invite friends
+        </p>
       </div>
     </div>
   );
