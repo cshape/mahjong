@@ -241,6 +241,9 @@ export class RealtimeSession {
       });
     } else {
       // Agent: audio+text output
+      // Audio input with turn detection disabled is required to activate the
+      // audio graph — without it, text-only prompts (sendContext) fail with
+      // "Unsupported content type without active audio graph: input_text"
       this._send({
         type: 'session.update',
         session: {
@@ -249,6 +252,14 @@ export class RealtimeSession {
           instructions: this.config.instructions,
           output_modalities: ['audio', 'text'],
           audio: {
+            input: {
+              turn_detection: {
+                type: 'semantic_vad',
+                eagerness: 'low',
+                create_response: false,
+                interrupt_response: false,
+              },
+            },
             output: {
               model: 'inworld-tts-1.5-mini',
               voice: this.config.voice,
