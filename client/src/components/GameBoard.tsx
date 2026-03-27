@@ -37,13 +37,14 @@ interface GameBoardProps {
   onClaim: (claimtype: number) => void;
   onPass: () => void;
   onRestart: () => void;
+  onSendChat?: (text: string) => void;
   voice?: VoiceHook;
   bgm?: BgmHook;
 }
 
 export function GameBoard({
   gameState, seatId, events, pendingAction, claimOptions,
-  onDiscard, onClaim, onPass, onRestart, voice, bgm,
+  onDiscard, onClaim, onPass, onRestart, onSendChat, voice, bgm,
 }: GameBoardProps) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const [showLog, setShowLog] = useState(true);
@@ -242,7 +243,7 @@ export function GameBoard({
             <button onClick={() => setMobilePanel(null)} style={{ background: 'none', border: 'none', fontSize: 20, color: theme.colors.textMuted }}>×</button>
           </div>
           {voice && voice.transcripts.length > 0 ? (
-            <TranscriptLog transcripts={voice.transcripts} />
+            <TranscriptLog transcripts={voice.transcripts} onSendChat={onSendChat} />
           ) : (
             <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: 'center', marginTop: 32 }}>Voice transcript will appear here</div>
           )}
@@ -369,7 +370,7 @@ export function GameBoard({
         {showLog && (
           <div style={{ gridArea: 'tlog', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {voice && voice.transcripts.length > 0 ? (
-              <TranscriptLog transcripts={voice.transcripts} />
+              <TranscriptLog transcripts={voice.transcripts} onSendChat={onSendChat} />
             ) : (
               <div className="glass-panel" style={{ flex: 1, padding: '12px 14px', fontSize: 12, color: theme.colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 Voice transcript will appear here

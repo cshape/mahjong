@@ -206,6 +206,21 @@ wss.on('connection', (ws, request) => {
         break;
       }
 
+      case 'chat': {
+        if (!room) return send({ type: 'error', message: 'Not in a room' });
+        const chatName = room.seats[seatId]?.name || 'Player';
+        const chatMsg = { type: 'chat', seatId, playerName: chatName, text: msg.text };
+        // Broadcast to all humans
+        for (const seat of room.seats) {
+          if (seat && !seat.isBot && seat.send) seat.send(chatMsg);
+        }
+        // Feed into voice manager so AI characters can react
+        if (room.voiceManager) {
+          room.voiceManager.onTextChat(chatName, msg.text);
+        }
+        break;
+      }
+
       case 'voice:on': {
         room?.voiceManager?.setVoicePaused(false);
         break;

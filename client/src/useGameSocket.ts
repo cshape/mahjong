@@ -126,6 +126,10 @@ export function useGameSocket(
           voiceHandlerRef.current?.(msg);
           break;
 
+        case 'chat':
+          voiceHandlerRef.current?.(msg);
+          break;
+
         case 'error':
           console.error('Server error:', msg.message);
           setState(s => ({ ...s, error: msg.message }));
@@ -180,6 +184,10 @@ export function useGameSocket(
     setState(s => ({ ...s, events: [], pendingAction: null, claimOptions: null, claimTile: null }));
   }, [send]);
 
+  const sendChat = useCallback((text: string) => {
+    if (text.trim()) send({ type: 'chat', text: text.trim() });
+  }, [send]);
+
   useEffect(() => {
     return () => {
       wsRef.current?.close();
@@ -196,5 +204,6 @@ export function useGameSocket(
     claim,
     pass,
     restart,
+    sendChat,
   };
 }

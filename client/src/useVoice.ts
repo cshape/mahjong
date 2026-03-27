@@ -189,6 +189,22 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
       case 'voice:interrupt':
         flushAgentAudio(msg.agentId);
         break;
+
+      case 'chat':
+        setState(s => ({
+          ...s,
+          transcripts: [
+            ...s.transcripts.slice(-49),
+            {
+              agentId: null,
+              agentName: msg.playerName || 'Player',
+              text: msg.text,
+              final: true,
+              timestamp: Date.now(),
+            },
+          ],
+        }));
+        break;
     }
   }, [state.enabled, queueAudio, flushAgentAudio]);
 

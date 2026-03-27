@@ -419,6 +419,14 @@ export class VoiceManager {
     }
   }
 
+  /** Handle text chat from a human player — treat like speech for AI responses */
+  onTextChat(playerName: string, text: string) {
+    this._addContext(`[${playerName}]: ${text}`);
+    this._touchActivity();
+    if (this.voicePaused) return;
+    this._onHumanSpeech(playerName, text);
+  }
+
   /** Pause all AI vocalization (client turned voice off) */
   setVoicePaused(paused: boolean) {
     this.voicePaused = paused;

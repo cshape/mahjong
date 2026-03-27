@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { theme } from '../theme';
 import type { TranscriptEntry } from '../useVoice';
 
@@ -15,10 +15,12 @@ function stripMarkup(text: string): string {
 
 interface TranscriptLogProps {
   transcripts: TranscriptEntry[];
+  onSendChat?: (text: string) => void;
 }
 
-export function TranscriptLog({ transcripts }: TranscriptLogProps) {
+export function TranscriptLog({ transcripts, onSendChat }: TranscriptLogProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [chatText, setChatText] = useState('');
 
   useEffect(() => {
     if (containerRef.current) {
@@ -26,38 +28,96 @@ export function TranscriptLog({ transcripts }: TranscriptLogProps) {
     }
   }, [transcripts]);
 
-  if (transcripts.length === 0) return null;
+  const handleSend = () => {
+    if (chatText.trim() && onSendChat) {
+      onSendChat(chatText.trim());
+      setChatText('');
+    }
+  };
+
+  if (transcripts.length === 0 && !onSendChat) return null;
 
   return (
-    <div
-      ref={containerRef}
-      className="glass-panel"
-      style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '10px 12px',
-        fontSize: 12,
-        lineHeight: 1.5,
-      }}
-    >
-      <div style={{
-        fontSize: 10, color: theme.colors.accent,
-        textTransform: 'uppercase', letterSpacing: 1.5,
-        marginBottom: 6, fontWeight: 800,
-      }}>Voice Chat</div>
-      {transcripts.filter(t => t.final).slice(-15).map((t, i) => (
-        <div key={i} style={{ marginBottom: 3 }}>
-          <span style={{
-            fontWeight: 700,
-            color: t.agentId != null ? (AGENT_COLORS[t.agentId] || theme.colors.textSecondary) : theme.colors.textPrimary,
-          }}>
-            {t.agentName}:
-          </span>{' '}
-          <span style={{ color: theme.colors.textSecondary }}>
-            {stripMarkup(t.text)}
-          </span>
+    <div className="glass-panel" style={{
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      <div
+        ref={containerRef}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '10px 12px',
+          fontSize: 12,
+          lineHeight: 1.5,
+        }}
+      >
+        <div style={{
+          fontSize: 10, color: theme.colors.accent,
+          textTransform: 'uppercase', letterSpacing: 1.5,
+          marginBottom: 6, fontWeight: 800,
+        }}>Chat</div>
+        {transcripts.filter(t => t.final).slice(-30).map((t, i) => (
+          <div key={i} style={{ marginBottom: 3 }}>
+            <span style={{
+              fontWeight: 700,
+              color: t.agentId != null ? (AGENT_COLORS[t.agentId] || theme.colors.textSecondary) : theme.colors.textPrimary,
+            }}>
+              {t.agentName}:
+            </span>{' '}
+            <span style={{ color: theme.colors.textSecondary }}>
+              {stripMarkup(t.text)}
+            </span>
+          </div>
+        ))}
+      </div>
+      {onSendChat && (
+        <div style={{
+          display: 'flex', gap: 4,
+          padding: '6px 8px',
+          borderTop: `1px solid ${theme.colors.border}`,
+          flexShrink: 0,
+        }}>
+          <input
+            type="text"
+            value={chatText}
+            onChange={e => setChatText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
+            placeholder="Type a message..."
+            style={{
+              flex: 1,
+              padding: '6px 10px',
+              fontSize: 12,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.radius.sm,
+              outline: 'none',
+              backgroundColor: theme.colors.bgCard,
+              color: theme.colors.textPrimary,
+              minWidth: 0,
+            }}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!chatText.trim()}
+            style={{
+              padding: '6px 12px',
+              fontSize: 11,
+              fontWeight: 700,
+              backgroundColor: chatText.trim() ? theme.colors.accent : theme.colors.textMuted,
+              color: '#fff',
+              border: 'none',
+              borderRadius: theme.radius.sm,
+              cursor: chatText.trim() ? 'pointer' : 'default',
+              opacity: chatText.trim() ? 1 : 0.4,
+              flexShrink: 0,
+            }}
+          >
+            Send
+          </button>
         </div>
-      ))}
+      )}
     </div>
   );
 }
