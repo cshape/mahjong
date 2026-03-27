@@ -46,10 +46,10 @@ function App() {
     }
   }, [screen, gameState, voice]);
 
-  // Auto-start BGM when entering waiting room or game
+  // Auto-start BGM when game starts (not in lobby)
   const bgmStartedRef = useRef(false);
   useEffect(() => {
-    if ((screen === 'waiting' || screen === 'playing') && !bgmStartedRef.current) {
+    if (screen === 'playing' && !bgmStartedRef.current) {
       bgmStartedRef.current = true;
       bgm.start();
     }
