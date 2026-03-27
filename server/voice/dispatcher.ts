@@ -5,7 +5,7 @@
  * Returns "speak: <Name>" or "silence".
  */
 
-const LLM_MODEL = 'openai/gpt-4.1-nano';
+const LLM_MODEL = 'openai/gpt-4.1-mini';
 const API_URL = 'https://api.inworld.ai/v1/chat/completions';
 
 export async function askDispatcher(opts: {

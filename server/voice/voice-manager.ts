@@ -128,8 +128,8 @@ WHEN THE HUMAN SPEAKS:
 - If they say something general → pick whoever fits best.
 
 GAME EVENTS:
-- When a bot CLAIMS a tile (Pong, Sheung, Kong): ALWAYS have that bot speak.
-- When a bot WINS: ALWAYS have that bot speak.
+- When a bot CLAIMS a tile (Pong, Sheung, Kong): ALWAYS respond with that bot's name. Example: if "Grandpa claimed bamboo 5 for a Pong" → respond "speak: Grandpa"
+- When a bot WINS: ALWAYS respond with that bot's name.
 - When the HUMAN claims or wins: have a bot react.
 - Routine discards: usually silence, but occasionally (~1 in 5) pick someone to comment.
 - End of hand / draw: always have someone comment.
@@ -166,8 +166,8 @@ WHEN HUMANS SPEAK:
 - If multiple humans are chatting, wait for a natural pause.
 
 GAME EVENTS:
-- When a bot CLAIMS a tile (Pong, Sheung, Kong): ALWAYS have that bot speak.
-- When a bot WINS: ALWAYS have that bot speak.
+- When a bot CLAIMS a tile (Pong, Sheung, Kong): ALWAYS respond with that bot's name. Example: if "Grandpa claimed bamboo 5 for a Pong" → respond "speak: Grandpa"
+- When a bot WINS: ALWAYS respond with that bot's name.
 - When a HUMAN claims or wins: occasionally have a bot react (~1 in 3).
 - Routine discards: mostly silence. Comment rarely (~1 in 8).
 - End of hand / draw: have a bot comment.
