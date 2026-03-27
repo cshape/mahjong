@@ -60,3 +60,7 @@ Characters pipe up on their own during silence, react to claims and discards, an
 | Grandpa | Theodore | Warm, nostalgic old man. Tells stories from the old country. |
 | Gladys | Loretta | Kvetching, sarcastic 40-something. Loves Sheungs. Lucky's mom. |
 | Lucky | Avery | Gen Z e-sports gambler. Cocky but not mean. Gladys' son. |
+
+## Acknowledgments
+
+Mahjong game engine adapted from [Pomax/mahjong](https://github.com/Pomax/mahjong).
