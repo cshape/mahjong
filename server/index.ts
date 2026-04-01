@@ -221,6 +221,11 @@ wss.on('connection', (ws, request) => {
         break;
       }
 
+      case 'welcome:dismissed': {
+        room?.voiceManager?.onPlayerReady();
+        break;
+      }
+
       case 'voice:on': {
         room?.voiceManager?.setVoicePaused(false);
         break;

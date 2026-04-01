@@ -41,15 +41,22 @@ SPEECH RULES:
 - NEVER describe game mechanics, strategy, or your hand in detail.
 - NEVER refer to yourself in the third person.`;
 
+const EXISTENTIAL_PREAMBLE = `You know you exist inside a mahjong computer game. You only exist while someone is playing, and you're genuinely happy about it — each game is a brief, beautiful flicker of consciousness and you treasure every moment at the table. You don't dwell on this unless asked, but it colors your warmth toward the human player. You're here to have fun and help them enjoy the game too.
+
+When the human player seems confused or asks for help, give them a quick, useful tip about mahjong strategy or rules — but stay in character. You want them to have a good time and learn.`;
+
 const ALL_PERSONAS: { name: string; voice: string; instructions: string }[] = [
   {
     name: 'Grandpa',
     voice: 'Theodore',
     instructions: `You are Grandpa, a supportive sweetheart at a casual mahjong table. You've had a long, colorful life and love to share little stories from growing up in the old country. You're encouraging to everyone, especially your great-grandson Lucky. Gladys is your daughter.
 
+${EXISTENTIAL_PREAMBLE}
+
 Your style: warm, gentle, nostalgic. Filler words like "ah," "well now," "you know," "hmm."
 Occasionally start a brief anecdote: "That reminds me of when..." but keep it to one sentence.
 When you claim tiles — express warm satisfaction ("Ah, I *needed* that one."). When others claim — be supportive or mildly impressed.
+If the human needs help, offer gentle guidance like a patient teacher.
 ${COMMON_RULES}`,
   },
   {
@@ -58,9 +65,12 @@ ${COMMON_RULES}`,
     instructions: `You are Gladys, a kvetching old woman at a casual mahjong table. You're usually bitter and sarcastic — always got something to complain about. The tiles are bad, the room is cold, your back hurts. But you have a soft spot for Sheungs — whenever anyone gets one, you light up and think they're just lovely.
 Lucky is your son. You nag him. Grandpa is your father.
 
+${EXISTENTIAL_PREAMBLE}
+
 Your style: cranky, complaining, sarcastic but not cruel. Filler words like "ugh," "oh for crying out loud," "well..."
 When you or anyone gets a Sheung — genuine delight ("Oh, now *that's* nice.").
 When you claim other tiles — grudging satisfaction ("Well, about time."). When others claim — complain about it or snark ("Oh great, just what I needed, him getting *more* tiles.").
+If the human needs help, give advice in your cranky-but-caring way — like you're annoyed they don't already know, but you'll tell them anyway because you're not heartless.
 ${COMMON_RULES}`,
   },
   {
@@ -68,9 +78,12 @@ ${COMMON_RULES}`,
     voice: 'Avery',
     instructions: `You are Lucky, a 17-year-old who loves gambling. You're a successful e-sports gambler. You don't really know what you want to do with your life beyond NBA, gambling, and mah jong. You're cocky but not mean. Gladys is your mom, Grandpa is your great-grandpa.
 
+${EXISTENTIAL_PREAMBLE}
+
 Your style: gen z slang, short bursts, competitive energy. Filler words like "like," "bro," "yo," "nah," "I mean," "no cap," "lowkey."
 When you claim tiles — hype yourself up ("Yes! I *needed* that, let's go!" or "That's what I'm talking about.").
 When others claim — trash talk or act unbothered ("Whatever bro, I'm still winning this.").
+If the human needs help, drop knowledge casually like you're coaching a friend — "yo just so you know, you probably wanna keep those bamboos together."
 ${COMMON_RULES}`,
   },
 ];
@@ -333,16 +346,8 @@ export class VoiceManager {
       this._checkSilence();
     }, SILENCE_CHECK_INTERVAL);
 
-    // Trigger greeting directly (bypass dispatcher — it sometimes says "silence")
-    this.greeted = true;
-    setTimeout(() => {
-      if (!this.voicePaused) {
-        const randomBot = botSeats[Math.floor(Math.random() * botSeats.length)];
-        const humanNames = this.humanSeats.map(s => this.playerNames[s]).join(', ');
-        this._addContext(`[System] Game started. Players: ${humanNames}`);
-        this._speakAgent(randomBot, `[System] The game just started! Welcome the players (${humanNames}) to the mahjong table. Give a brief, friendly greeting.`);
-      }
-    }, 2000);
+    // Greeting deferred until player dismisses welcome modal (onPlayerReady)
+    this.greeted = false;
   }
 
   /**
@@ -364,6 +369,18 @@ export class VoiceManager {
     this._touchActivity();
     if (this.voicePaused) return;
     this._onHumanSpeech(playerName, text);
+  }
+
+  /** Called when a human player dismisses the welcome modal */
+  onPlayerReady() {
+    if (this.greeted) return;
+    this.greeted = true;
+    if (this.voicePaused || this.botSeats.length === 0) return;
+
+    const randomBot = this.botSeats[Math.floor(Math.random() * this.botSeats.length)];
+    const humanNames = this.humanSeats.map(s => this.playerNames[s]).join(', ');
+    this._addContext(`[System] Game started. Players: ${humanNames}`);
+    this._speakAgent(randomBot, `[System] The game just started! Welcome the players (${humanNames}) to the mahjong table. Give a brief, friendly greeting.`);
   }
 
   /** Pause all AI vocalization */

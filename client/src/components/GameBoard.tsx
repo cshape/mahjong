@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { PlayerArea } from './PlayerArea';
 import { DiscardPool } from './DiscardPool';
 import { ActionBar } from './ActionBar';
-import { EventLog } from './EventLog';
+// EventLog removed from UI
 import { VoicePanel } from './VoicePanel';
 import { TranscriptLog } from './TranscriptLog';
 import { RulesPanel } from './RulesPanel';
@@ -38,21 +38,22 @@ interface GameBoardProps {
   onPass: () => void;
   onRestart: () => void;
   onSendChat?: (text: string) => void;
+  onReady?: () => void;
   voice?: VoiceHook;
   bgm?: BgmHook;
 }
 
 export function GameBoard({
   gameState, seatId, events, pendingAction, claimOptions,
-  onDiscard, onClaim, onPass, onRestart, onSendChat, voice, bgm,
+  onDiscard, onClaim, onPass, onRestart, onSendChat, onReady, voice, bgm,
 }: GameBoardProps) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
-  const [showLog, setShowLog] = useState(true);
+  const [showChat, setShowChat] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [winnerId, setWinnerId] = useState<number | null>(null);
   const [claimBanner, setClaimBanner] = useState<{ playerName: string; label: string } | null>(null);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState<'log' | 'chat' | null>(null);
+  const [mobilePanel, setMobilePanel] = useState<'chat' | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const isMobile = useIsMobile();
 
@@ -266,7 +267,7 @@ export function GameBoard({
       {/* Welcome popup */}
       {showWelcome && (
         <div
-          onClick={() => setShowWelcome(false)}
+          onClick={() => { setShowWelcome(false); onReady?.(); }}
           style={{
             position: 'absolute', inset: 0, zIndex: 70,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -294,7 +295,7 @@ export function GameBoard({
               Your AI opponents will chat with you as you play. Need help with the rules? Tap the <b style={{ color: theme.colors.accent }}>?</b> button in the top {isMobile ? 'menu' : 'right'}.
             </p>
             <button
-              onClick={() => setShowWelcome(false)}
+              onClick={() => { setShowWelcome(false); onReady?.(); }}
               style={{
                 padding: '0.75rem 2rem',
                 fontSize: 'clamp(14px, 2vw, 16px)',
@@ -328,19 +329,6 @@ export function GameBoard({
         {mobilePanel && (
           <div onClick={() => setMobilePanel(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 80 }} />
         )}
-        <div style={{
-          position: 'fixed', left: 0, top: 0, width: 300, height: '100dvh',
-          background: theme.colors.bgCard, zIndex: 81, padding: 12, overflowY: 'auto',
-          transform: mobilePanel === 'log' ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.3s ease',
-          boxShadow: mobilePanel === 'log' ? '4px 0 20px rgba(0,0,0,0.15)' : 'none',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontWeight: 800, color: theme.colors.accent }}>Game Log</span>
-            <button onClick={() => setMobilePanel(null)} style={{ background: 'none', border: 'none', fontSize: 20, color: theme.colors.textMuted }}>×</button>
-          </div>
-          <EventLog events={events} players={gameState.players} />
-        </div>
         <div style={{
           position: 'fixed', right: 0, top: 0, width: 300, height: '100dvh',
           background: theme.colors.bgCard, zIndex: 81, padding: 12, overflowY: 'auto',
@@ -382,10 +370,7 @@ export function GameBoard({
               {voice && (
                 <VoicePanel enabled={voice.enabled} muted={voice.muted} onStartVoice={voice.startVoice} onStopVoice={voice.stopVoice} onToggleMute={voice.toggleMute} />
               )}
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => { setMobilePanel('log'); setMobileMenu(false); }} style={btnStyle}>Game Log</button>
-                <button onClick={() => { setMobilePanel('chat'); setMobileMenu(false); }} style={btnStyle}>Chat</button>
-              </div>
+              <button onClick={() => { setMobilePanel('chat'); setMobileMenu(false); }} style={btnStyle}>Chat</button>
               <button onClick={() => { setRulesOpen(true); setMobileMenu(false); }} style={btnStyle}>Rules & Tips</button>
             </div>
           </>
@@ -429,11 +414,11 @@ export function GameBoard({
       <RulesPanel open={rulesOpen} onClose={() => setRulesOpen(false)} />
       <div style={{
         width: '100%', height: '100%', display: 'grid',
-        gridTemplateAreas: showLog
-          ? `"topbar topbar topbar" "elog board tlog"`
+        gridTemplateAreas: showChat
+          ? `"topbar topbar" "board tlog"`
           : `"topbar" "board"`,
-        gridTemplateColumns: showLog
-          ? 'clamp(160px, 16vw, 240px) 1fr clamp(160px, 16vw, 240px)'
+        gridTemplateColumns: showChat
+          ? '1fr clamp(200px, 20vw, 280px)'
           : '1fr',
         gridTemplateRows: 'auto 1fr',
         gap: 8, padding: 8, background: theme.colors.bgPage,
@@ -468,21 +453,16 @@ export function GameBoard({
             {voice && (
               <VoicePanel enabled={voice.enabled} muted={voice.muted} onStartVoice={voice.startVoice} onStopVoice={voice.stopVoice} onToggleMute={voice.toggleMute} />
             )}
-            <button onClick={() => setShowLog(s => !s)} style={{ ...btnStyle, borderColor: showLog ? theme.colors.accent : theme.colors.border, color: showLog ? theme.colors.accent : theme.colors.textSecondary, background: showLog ? theme.colors.accentSoft : theme.colors.bgCard }}>Log</button>
+            <button onClick={() => setShowChat(s => !s)} style={{ ...btnStyle, borderColor: showChat ? theme.colors.accent : theme.colors.border, color: showChat ? theme.colors.accent : theme.colors.textSecondary, background: showChat ? theme.colors.accentSoft : theme.colors.bgCard }}>Chat</button>
             <button onClick={() => setRulesOpen(true)} style={circleBtn(false)} title="Rules & Tips">?</button>
           </div>
         </div>
 
-        {/* Sidebars */}
-        {showLog && (
-          <div style={{ gridArea: 'elog', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <EventLog events={events} players={gameState.players} />
-          </div>
-        )}
+        {/* Board + Chat */}
         <div style={{ gridArea: 'board', display: 'flex', alignItems: 'stretch', justifyContent: 'stretch', overflow: 'hidden' }}>
           {boardInner}
         </div>
-        {showLog && (
+        {showChat && (
           <div style={{ gridArea: 'tlog', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {voice && voice.transcripts.length > 0 ? (
               <TranscriptLog transcripts={voice.transcripts} onSendChat={onSendChat} />

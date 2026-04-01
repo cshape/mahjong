@@ -31,7 +31,7 @@ function App() {
   const {
     screen, connected, gameState, seatId, events, roomCode,
     lobbyState, pendingAction, claimOptions, error,
-    createGame, joinGame, startGame, discard, claim, pass, restart, sendChat,
+    createGame, joinGame, startGame, discard, claim, pass, restart, sendChat, sendReady,
     wsRef: gameWsRef,
   } = useGameSocket(voice.handleVoiceMessage, handleGameEvent);
 
@@ -319,6 +319,7 @@ function App() {
       onPass={pass}
       onRestart={restart}
       onSendChat={sendChat}
+      onReady={sendReady}
       voice={voice}
       bgm={bgm}
     />

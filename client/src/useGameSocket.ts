@@ -188,6 +188,10 @@ export function useGameSocket(
     if (text.trim()) send({ type: 'chat', text: text.trim() });
   }, [send]);
 
+  const sendReady = useCallback(() => {
+    send({ type: 'welcome:dismissed' });
+  }, [send]);
+
   useEffect(() => {
     return () => {
       wsRef.current?.close();
@@ -205,5 +209,6 @@ export function useGameSocket(
     pass,
     restart,
     sendChat,
+    sendReady,
   };
 }
