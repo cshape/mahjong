@@ -5,11 +5,24 @@
 import { useCallback, useRef } from 'react';
 
 let audioCtx: AudioContext | null = null;
+let sfxDest: MediaStreamAudioDestinationNode | null = null;
+let sfxAudioEl: HTMLAudioElement | null = null;
 
 function getCtx(): AudioContext {
-  if (!audioCtx) audioCtx = new AudioContext();
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+    // Route through <audio> element so hardware volume/mute is respected on mobile
+    sfxDest = audioCtx.createMediaStreamDestination();
+    sfxAudioEl = document.createElement('audio');
+    sfxAudioEl.srcObject = sfxDest.stream;
+    sfxAudioEl.play().catch(() => {});
+  }
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
+}
+
+function getDest(): AudioNode {
+  return sfxDest || getCtx().destination;
 }
 
 /** Soft "click/thud" for tile placement */
@@ -36,7 +49,7 @@ function playTilePlace() {
   gain.gain.setValueAtTime(0.3, t);
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
 
-  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.connect(filter).connect(gain).connect(getDest());
   src.start(t);
 }
 
@@ -56,7 +69,7 @@ function playClaimChime() {
     gain.gain.setValueAtTime(0.2, start);
     gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
 
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(getDest());
     osc.start(start);
     osc.stop(start + 0.45);
   });
@@ -76,7 +89,7 @@ function playClaimChime() {
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0.35, t);
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.connect(filter).connect(gain).connect(getDest());
   src.start(t);
 }
 
@@ -96,7 +109,7 @@ function playWinFanfare() {
     gain.gain.setValueAtTime(0.3, start);
     gain.gain.exponentialRampToValueAtTime(0.001, start + 0.6);
 
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(getDest());
     osc.start(start);
     osc.stop(start + 0.65);
   });
@@ -112,7 +125,7 @@ function playWinFanfare() {
     gain.gain.setValueAtTime(0.15, start);
     gain.gain.exponentialRampToValueAtTime(0.001, start + 1.2);
 
-    osc.connect(gain).connect(ctx.destination);
+    osc.connect(gain).connect(getDest());
     osc.start(start);
     osc.stop(start + 1.3);
   });
@@ -131,7 +144,7 @@ function playTileDraw() {
   gain.gain.setValueAtTime(0.08, t);
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
 
-  osc.connect(gain).connect(ctx.destination);
+  osc.connect(gain).connect(getDest());
   osc.start(t);
   osc.stop(t + 0.06);
 }

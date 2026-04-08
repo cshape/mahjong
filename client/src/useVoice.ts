@@ -35,6 +35,8 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
 
   // Audio contexts
   const playbackCtxRef = useRef<AudioContext | null>(null);
+  const playbackDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const playbackElRef = useRef<HTMLAudioElement | null>(null);
   const captureCtxRef = useRef<AudioContext | null>(null);
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -71,7 +73,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     buf.getChannelData(0).set(f32);
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.connect(ctx.destination);
+    src.connect(playbackDestRef.current || ctx.destination);
 
     const now = ctx.currentTime;
     const nextTime = nextPlayTimeRef.current;
@@ -213,10 +215,18 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
    */
   const startVoice = useCallback(async () => {
     try {
-      // Playback context
+      // Playback context — route through <audio> element so hardware
+      // volume / mute switch is respected on mobile (iOS especially)
       const playbackCtx = new AudioContext({ sampleRate: 48000 });
       if (playbackCtx.state === 'suspended') await playbackCtx.resume();
       playbackCtxRef.current = playbackCtx;
+
+      const streamDest = playbackCtx.createMediaStreamDestination();
+      playbackDestRef.current = streamDest;
+      const audioEl = document.createElement('audio');
+      audioEl.srcObject = streamDest.stream;
+      audioEl.play().catch(() => {});
+      playbackElRef.current = audioEl;
 
       // Mic capture
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -311,6 +321,15 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     activeSourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
     activeSourcesRef.current = [];
     nextPlayTimeRef.current = 0;
+    if (playbackElRef.current) {
+      playbackElRef.current.pause();
+      playbackElRef.current.srcObject = null;
+      playbackElRef.current = null;
+    }
+    if (playbackDestRef.current) {
+      playbackDestRef.current.disconnect();
+      playbackDestRef.current = null;
+    }
     if (playbackCtxRef.current) {
       playbackCtxRef.current.close();
       playbackCtxRef.current = null;
