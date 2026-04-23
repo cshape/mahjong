@@ -46,14 +46,37 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Carry byte between chunks: Inworld's SSE audio chunks aren't guaranteed to
+  // be 2-byte aligned, so a sample can straddle two chunks. Holding the odd
+  // trailing byte until the next chunk keeps Int16 decoding aligned.
+  const carryByteRef = useRef<number | null>(null);
+
   /**
    * Decode base64 PCM16 to Float32Array for Web Audio playback.
    */
   const base64ToFloat32 = useCallback((b64: string): Float32Array => {
     const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const pcm16 = new Int16Array(bytes.buffer);
+    const incoming = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) incoming[i] = bin.charCodeAt(i);
+
+    let bytes: Uint8Array;
+    if (carryByteRef.current !== null) {
+      bytes = new Uint8Array(incoming.length + 1);
+      bytes[0] = carryByteRef.current;
+      bytes.set(incoming, 1);
+      carryByteRef.current = null;
+    } else {
+      bytes = incoming;
+    }
+
+    let usable = bytes.length;
+    if (usable % 2 !== 0) {
+      carryByteRef.current = bytes[usable - 1];
+      usable -= 1;
+    }
+    if (usable === 0) return new Float32Array(0);
+
+    const pcm16 = new Int16Array(bytes.buffer, bytes.byteOffset, usable / 2);
     const f32 = new Float32Array(pcm16.length);
     for (let i = 0; i < pcm16.length; i++) f32[i] = pcm16[i] / 32768;
     return f32;
@@ -105,6 +128,9 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
 
     // Reset global playback scheduling
     nextPlayTimeRef.current = 0;
+
+    // Drop any carry byte from the interrupted utterance
+    carryByteRef.current = null;
 
     // Clear speaking indicator
     if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
@@ -321,6 +347,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     activeSourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
     activeSourcesRef.current = [];
     nextPlayTimeRef.current = 0;
+    carryByteRef.current = null;
     if (playbackElRef.current) {
       playbackElRef.current.pause();
       playbackElRef.current.srcObject = null;
