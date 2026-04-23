@@ -2,7 +2,7 @@
  * useVoice: React hook for mic capture and agent audio playback.
  *
  * - Captures mic at 24kHz via AudioWorklet, sends PCM16 base64 chunks to server
- * - Receives agent audio (PCM16 24kHz base64) from server, plays via Web Audio API
+ * - Receives agent audio (base64 FLAC chunks) from server, decodes via Web Audio API
  * - Per-agent playback queues to prevent overlap
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -46,77 +46,60 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Carry byte between chunks: Inworld's SSE audio chunks aren't guaranteed to
-  // be 2-byte aligned, so a sample can straddle two chunks. Holding the odd
-  // trailing byte until the next chunk keeps Int16 decoding aligned.
-  const carryByteRef = useRef<number | null>(null);
+  // Decode/playback is async (decodeAudioData returns a Promise). Chain decodes
+  // so chunks are scheduled in arrival order, and bump `generationRef` on
+  // flush/stop so in-flight decodes from the interrupted utterance drop their output.
+  const decodeChainRef = useRef<Promise<void>>(Promise.resolve());
+  const generationRef = useRef(0);
 
   /**
-   * Decode base64 PCM16 to Float32Array for Web Audio playback.
-   */
-  const base64ToFloat32 = useCallback((b64: string): Float32Array => {
-    const bin = atob(b64);
-    const incoming = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) incoming[i] = bin.charCodeAt(i);
-
-    let bytes: Uint8Array;
-    if (carryByteRef.current !== null) {
-      bytes = new Uint8Array(incoming.length + 1);
-      bytes[0] = carryByteRef.current;
-      bytes.set(incoming, 1);
-      carryByteRef.current = null;
-    } else {
-      bytes = incoming;
-    }
-
-    let usable = bytes.length;
-    if (usable % 2 !== 0) {
-      carryByteRef.current = bytes[usable - 1];
-      usable -= 1;
-    }
-    if (usable === 0) return new Float32Array(0);
-
-    const pcm16 = new Int16Array(bytes.buffer, bytes.byteOffset, usable / 2);
-    const f32 = new Float32Array(pcm16.length);
-    for (let i = 0; i < pcm16.length; i++) f32[i] = pcm16[i] / 32768;
-    return f32;
-  }, []);
-
-  /**
-   * Queue an audio chunk for playback.
+   * Queue an audio chunk for playback. Each chunk from Inworld's /v1/chat/completions
+   * is a self-contained FLAC file, so we decode with the browser's AudioContext.
    */
   const queueAudio = useCallback((base64: string, agentId: number) => {
     const ctx = playbackCtxRef.current;
     if (!ctx) return;
 
-    const f32 = base64ToFloat32(base64);
-    if (f32.length === 0) return;
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    // decodeAudioData detaches the ArrayBuffer — give it its own copy.
+    const ab = bytes.buffer.slice(0);
 
-    const buf = ctx.createBuffer(1, f32.length, 48000);
-    buf.getChannelData(0).set(f32);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(playbackDestRef.current || ctx.destination);
+    const myGen = generationRef.current;
+    decodeChainRef.current = decodeChainRef.current.then(async () => {
+      if (generationRef.current !== myGen) return;
+      let audioBuffer: AudioBuffer;
+      try {
+        audioBuffer = await ctx.decodeAudioData(ab);
+      } catch (err) {
+        console.error('[Voice] decodeAudioData failed:', err);
+        return;
+      }
+      if (generationRef.current !== myGen) return;
 
-    const now = ctx.currentTime;
-    const nextTime = nextPlayTimeRef.current;
-    const startTime = Math.max(now, nextTime);
-    src.start(startTime);
-    nextPlayTimeRef.current = startTime + buf.duration;
+      const src = ctx.createBufferSource();
+      src.buffer = audioBuffer;
+      src.connect(playbackDestRef.current || ctx.destination);
 
-    activeSourcesRef.current.push(src);
-    src.onended = () => {
-      const idx = activeSourcesRef.current.indexOf(src);
-      if (idx !== -1) activeSourcesRef.current.splice(idx, 1);
-    };
+      const startTime = Math.max(ctx.currentTime, nextPlayTimeRef.current);
+      src.start(startTime);
+      nextPlayTimeRef.current = startTime + audioBuffer.duration;
 
-    // Update speaking indicator
+      activeSourcesRef.current.push(src);
+      src.onended = () => {
+        const idx = activeSourcesRef.current.indexOf(src);
+        if (idx !== -1) activeSourcesRef.current.splice(idx, 1);
+      };
+    });
+
+    // Update speaking indicator (synchronous, so UI reacts before decode finishes)
     setState(s => ({ ...s, speakingAgentId: agentId }));
     if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
     speakingTimerRef.current = setTimeout(() => {
       setState(s => ({ ...s, speakingAgentId: null }));
     }, 500);
-  }, [base64ToFloat32]);
+  }, []);
 
   /**
    * Flush all queued/playing audio for an agent (used when server cancels a response).
@@ -129,8 +112,8 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     // Reset global playback scheduling
     nextPlayTimeRef.current = 0;
 
-    // Drop any carry byte from the interrupted utterance
-    carryByteRef.current = null;
+    // Bump generation so any in-flight decode from the interrupted utterance drops its output
+    generationRef.current++;
 
     // Clear speaking indicator
     if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
@@ -347,7 +330,7 @@ export function useVoice(wsRef: React.RefObject<WebSocket | null>) {
     activeSourcesRef.current.forEach(s => { try { s.stop(); } catch {} });
     activeSourcesRef.current = [];
     nextPlayTimeRef.current = 0;
-    carryByteRef.current = null;
+    generationRef.current++;
     if (playbackElRef.current) {
       playbackElRef.current.pause();
       playbackElRef.current.srcObject = null;
